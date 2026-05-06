@@ -111,9 +111,8 @@ export default function KlusPage() {
     if (!response.ok) { const result = await response.json(); setFout(result.fout ?? 'Factuur maken mislukt.'); setFactuurMaken(false); return }
     const blob = await response.blob()
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = 'factuur.pdf'; a.click()
-    URL.revokeObjectURL(url)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
     const supabase = createClient()
     const { data } = await supabase.from('facturen').select('id').eq('klus_id', id).order('aangemaakt_op', { ascending: false }).limit(1).single()
     if (data) setFactuurId(data.id)
