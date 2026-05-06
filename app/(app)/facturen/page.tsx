@@ -81,7 +81,7 @@ export default function FacturenPage() {
   const openstaand = facturen.filter((f) => !f.betaald_op)
   const totaalDezeMaxand = facturen
     .filter((f) => {
-      const d = new Date(f.datum || f.aangemaakt_op)
+      const d = new Date(f.datum)
       const nu = new Date()
       return d.getMonth() === nu.getMonth() && d.getFullYear() === nu.getFullYear()
     })
