@@ -40,7 +40,7 @@ export default function DashboardPage() {
       .order('aangemaakt_op', { ascending: false })
       .limit(20)
 
-    setKlussen((data as Klus[]) ?? [])
+    setKlussen((data as unknown as Klus[]) ?? [])
     setLaden(false)
   }
 

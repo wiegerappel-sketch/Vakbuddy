@@ -43,7 +43,7 @@ export default function FacturenPage() {
       .eq('bedrijf_id', bedrijf.id)
       .order('aangemaakt_op', { ascending: false })
 
-    setFacturen((data as Factuur[]) ?? [])
+    setFacturen((data as unknown as Factuur[]) ?? [])
     setLaden(false)
   }
 

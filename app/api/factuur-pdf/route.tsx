@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
       totaal_incl_btw: totaalInclBtw,
     })
 
-    return new NextResponse(pdf, {
+    return new NextResponse(pdf as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="factuur-${factuurnummer}.pdf"`,
