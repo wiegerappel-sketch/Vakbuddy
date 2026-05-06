@@ -133,7 +133,7 @@ export default function KlusPage() {
       {klant && <p className="text-gray-500 text-sm mb-6">Klant: {klant.naam}</p>}
 
       {!klus.transcriptie && <AudioOpnemer onKlaar={handleTranscriberen} bezig={transcriberen} />}
-      {transcriberen && <div className="mt-6 text-blue-600 text-sm animate-pulse">Spraak wordt omgezet naar tekst...</div>}
+      {transcriberen && <div className="mt-6 text-[#f97316] text-sm animate-pulse">Spraak wordt omgezet naar tekst...</div>}
       {fout && <p className="text-red-500 text-sm mt-4">{fout}</p>}
 
       {klus.transcriptie && (
@@ -144,7 +144,7 @@ export default function KlusPage() {
           </div>
 
           {!werkbon && (
-            <button onClick={handleWerkbonMaken} disabled={werkbonMaken} className="bg-blue-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={handleWerkbonMaken} disabled={werkbonMaken} className="bg-[#f97316] text-white rounded-lg py-3 text-sm font-semibold hover:bg-orange-500 disabled:opacity-50">
               {werkbonMaken ? 'Werkbon wordt gemaakt...' : 'Maak werkbon →'}
             </button>
           )}
@@ -155,7 +155,7 @@ export default function KlusPage() {
                 <h2 className="text-sm font-medium text-gray-700">Werkbon</h2>
                 <button
                   onClick={() => { setBewerkWerkbon(JSON.parse(JSON.stringify(werkbon))); setWerkbonBewerken(true) }}
-                  className="text-sm text-blue-600 hover:underline"
+                  className="text-sm text-[#f97316] hover:underline"
                 >
                   Bewerken
                 </button>
@@ -180,11 +180,11 @@ export default function KlusPage() {
                 )}
               </div>
               <div className="flex flex-col gap-2 mt-4">
-                <button onClick={handleFactuurMaken} disabled={factuurMaken} className="bg-green-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50 w-full">
+                <button onClick={handleFactuurMaken} disabled={factuurMaken} className="bg-[#f97316] text-white rounded-lg py-3 text-sm font-semibold hover:bg-orange-500 disabled:opacity-50 w-full">
                   {factuurMaken ? 'Factuur wordt gemaakt...' : '📄 Factuur downloaden'}
                 </button>
                 {factuurId && !mailVerzonden && (
-                  <button onClick={handleMailVersturen} disabled={mailVersturen} className="bg-blue-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 w-full">
+                  <button onClick={handleMailVersturen} disabled={mailVersturen} className="bg-[#1a2e4a] text-white rounded-lg py-3 text-sm font-semibold hover:bg-[#223a5e] disabled:opacity-50 w-full">
                     {mailVersturen ? 'Mail wordt verstuurd...' : '✉️ Factuur mailen naar klant'}
                   </button>
                 )}
@@ -205,7 +205,7 @@ export default function KlusPage() {
                     value={bewerkWerkbon.omschrijving}
                     onChange={(e) => setBewerkWerkbon({ ...bewerkWerkbon, omschrijving: e.target.value })}
                     rows={2}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
                   />
                 </div>
                 <div>
@@ -216,7 +216,7 @@ export default function KlusPage() {
                     onChange={(e) => setBewerkWerkbon({ ...bewerkWerkbon, uren: parseFloat(e.target.value) })}
                     step="0.5"
                     min="0"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
                   />
                 </div>
                 <div>
@@ -255,7 +255,7 @@ export default function KlusPage() {
                     ))}
                     <button
                       onClick={() => setBewerkWerkbon({ ...bewerkWerkbon, materialen: [...bewerkWerkbon.materialen, { naam: '', aantal: 1, eenheid: 'stuk' }] })}
-                      className="text-sm text-blue-600 hover:underline text-left"
+                      className="text-sm text-[#f97316] hover:underline text-left"
                     >
                       + Materiaal toevoegen
                     </button>
@@ -266,7 +266,7 @@ export default function KlusPage() {
                   <select
                     value={bewerkWerkbon.voorrijkosten_meenemen ? 'ja' : 'nee'}
                     onChange={(e) => setBewerkWerkbon({ ...bewerkWerkbon, voorrijkosten_meenemen: e.target.value === 'ja' })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
                   >
                     <option value="ja">Ja</option>
                     <option value="nee">Nee</option>
@@ -274,7 +274,7 @@ export default function KlusPage() {
                 </div>
               </div>
               <div className="flex gap-3 mt-4">
-                <button onClick={handleWerkbonOpslaan} className="bg-blue-600 text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-blue-700">
+                <button onClick={handleWerkbonOpslaan} className="bg-[#f97316] text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-orange-500">
                   Opslaan
                 </button>
                 <button onClick={() => { setWerkbonBewerken(false); setBewerkWerkbon(null) }} className="text-sm text-gray-500 hover:text-gray-700">
@@ -324,7 +324,7 @@ function AudioOpnemer({ onKlaar, bezig }: { onKlaar: (blob: Blob) => void; bezig
         <div className="flex flex-col gap-3">
           <audio controls src={audioBlobUrl} className="w-full" />
           <div className="flex gap-3">
-            <button onClick={() => blobRef.current && onKlaar(blobRef.current)} disabled={bezig} className="bg-blue-600 text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={() => blobRef.current && onKlaar(blobRef.current)} disabled={bezig} className="bg-[#f97316] text-white rounded-lg px-5 py-2 text-sm font-semibold hover:bg-orange-500 disabled:opacity-50">
               {bezig ? 'Bezig...' : 'Omzetten naar tekst →'}
             </button>
             <button onClick={opnieuw} className="text-sm text-gray-500 hover:text-gray-700">Opnieuw</button>

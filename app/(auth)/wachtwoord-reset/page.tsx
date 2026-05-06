@@ -41,7 +41,7 @@ export default function WachtwoordResetPage() {
             minLength={6}
             value={wachtwoord}
             onChange={(e) => setWachtwoord(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
             placeholder="Minimaal 6 tekens"
           />
         </div>
@@ -51,7 +51,7 @@ export default function WachtwoordResetPage() {
         <button
           type="submit"
           disabled={laden}
-          className="bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          className="bg-[#f97316] text-white rounded-lg py-2 text-sm font-medium hover:bg-orange-500 disabled:opacity-50"
         >
           {laden ? 'Opslaan...' : 'Wachtwoord opslaan'}
         </button>

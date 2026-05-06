@@ -76,11 +76,10 @@ export default function InstellingenPage() {
     setBedrijf((prev) => ({ ...prev, [veld]: waarde }))
   }
 
-  if (laden) return <div className="p-8 text-gray-500">Laden...</div>
+  if (laden) return <div className="text-gray-500">Laden...</div>
 
   return (
-    <div className="p-8 max-w-lg">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Bedrijfsgegevens</h1>
+    <div className="max-w-lg">
       <p className="text-gray-500 text-sm mb-8">Deze gegevens komen op je facturen te staan.</p>
 
       <form onSubmit={handleOpslaan} className="flex flex-col gap-5">
@@ -96,7 +95,7 @@ export default function InstellingenPage() {
           <button
             type="submit"
             disabled={opslaan}
-            className="bg-blue-600 text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            className="bg-[#f97316] text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-orange-500 disabled:opacity-50"
           >
             {opslaan ? 'Opslaan...' : 'Opslaan'}
           </button>
@@ -132,7 +131,7 @@ function Veld({
         value={waarde}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
       />
     </div>
   )

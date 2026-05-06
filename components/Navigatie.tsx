@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 
 const links = [
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/klussen/nieuw', label: '+ Nieuwe klus' },
   { href: '/klanten', label: 'Klanten' },
   { href: '/facturen', label: 'Facturen' },
   { href: '/instellingen', label: 'Instellingen' },
@@ -23,18 +22,21 @@ export default function Navigatie() {
   }
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-6">
-        <span className="font-bold text-gray-900 text-lg">Vakbuddy</span>
-        <div className="flex items-center gap-4">
+    <nav className="bg-[#1a2e4a] px-6 py-0 flex items-center justify-between shadow-md">
+      <div className="flex items-center gap-8">
+        <Link href="/dashboard" className="flex items-center gap-2 py-4">
+          <span className="text-[#f97316] font-black text-xl tracking-tight">Vak</span>
+          <span className="text-white font-black text-xl tracking-tight">buddy</span>
+        </Link>
+        <div className="flex items-center">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm px-3 py-1.5 rounded-lg transition-colors ${
+              className={`text-sm px-4 py-4 border-b-2 transition-colors font-medium ${
                 pathname === link.href
-                  ? 'bg-blue-50 text-blue-600 font-medium'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-[#f97316] text-white'
+                  : 'border-transparent text-blue-200 hover:text-white'
               }`}
             >
               {link.label}
@@ -42,12 +44,20 @@ export default function Navigatie() {
           ))}
         </div>
       </div>
-      <button
-        onClick={handleUitloggen}
-        className="text-sm text-gray-400 hover:text-gray-600"
-      >
-        Uitloggen
-      </button>
+      <div className="flex items-center gap-4">
+        <Link
+          href="/klussen/nieuw"
+          className="bg-[#f97316] text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-orange-500 transition-colors"
+        >
+          + Nieuwe klus
+        </Link>
+        <button
+          onClick={handleUitloggen}
+          className="text-sm text-blue-300 hover:text-white transition-colors"
+        >
+          Uitloggen
+        </button>
+      </div>
     </nav>
   )
 }

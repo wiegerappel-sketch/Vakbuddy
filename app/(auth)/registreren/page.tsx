@@ -52,7 +52,7 @@ export default function RegistrerenPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
             placeholder="jij@voorbeeld.nl"
           />
         </div>
@@ -65,7 +65,7 @@ export default function RegistrerenPage() {
             minLength={6}
             value={wachtwoord}
             onChange={(e) => setWachtwoord(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
             placeholder="Minimaal 6 tekens"
           />
         </div>
@@ -75,7 +75,7 @@ export default function RegistrerenPage() {
         <button
           type="submit"
           disabled={laden}
-          className="bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          className="bg-[#f97316] text-white rounded-lg py-2 text-sm font-medium hover:bg-orange-500 disabled:opacity-50"
         >
           {laden ? 'Bezig...' : 'Account aanmaken'}
         </button>
@@ -83,7 +83,7 @@ export default function RegistrerenPage() {
 
       <p className="text-center text-sm text-gray-500 mt-6">
         Al een account?{' '}
-        <Link href="/login" className="text-blue-600 hover:underline">
+        <Link href="/login" className="text-[#f97316] hover:underline">
           Inloggen
         </Link>
       </p>

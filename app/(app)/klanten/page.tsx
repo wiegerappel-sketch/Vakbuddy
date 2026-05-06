@@ -131,7 +131,7 @@ export default function KlantenPage() {
         <h1 className="text-2xl font-bold text-gray-900">Klanten</h1>
         <button
           onClick={openNieuw}
-          className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700"
+          className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-orange-500"
         >
           + Nieuwe klant
         </button>
@@ -162,7 +162,7 @@ export default function KlantenPage() {
               <button
                 type="submit"
                 disabled={opslaan}
-                className="bg-blue-600 text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                className="bg-[#f97316] text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-orange-500 disabled:opacity-50"
               >
                 {opslaan ? 'Opslaan...' : 'Opslaan'}
               </button>
@@ -191,7 +191,7 @@ export default function KlantenPage() {
               </div>
               <button
                 onClick={() => openBewerken(klant)}
-                className="text-sm text-blue-600 hover:underline ml-4"
+                className="text-sm text-[#f97316] hover:underline ml-4"
               >
                 Bewerken
               </button>
@@ -227,7 +227,7 @@ function Veld({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         required={required}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
       />
     </div>
   )

@@ -161,7 +161,7 @@ export default function NieuweKlusPage() {
           <select
             value={gekozenKlantId}
             onChange={(e) => setGekozenKlantId(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
           >
             <option value="">-- Kies een klant --</option>
             {klanten.map((klant) => (
@@ -173,8 +173,8 @@ export default function NieuweKlusPage() {
         </div>
 
         {/* Checklist */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-          <p className="text-sm font-medium text-blue-800 mb-2">Vergeet dit niet te benoemen:</p>
+        <div className="bg-[#1a2e4a] rounded-xl p-4">
+          <p className="text-sm font-semibold text-white mb-2">Vergeet dit niet te benoemen:</p>
           <ul className="flex flex-col gap-1">
             {[
               'Wat heb je gedaan?',
@@ -183,8 +183,8 @@ export default function NieuweKlusPage() {
               'Welke materialen heb je gebruikt?',
               'Ben je voorgereden?',
             ].map((item) => (
-              <li key={item} className="text-sm text-blue-700 flex items-center gap-2">
-                <span>•</span> {item}
+              <li key={item} className="text-sm text-blue-200 flex items-center gap-2">
+                <span className="text-[#f97316]">•</span> {item}
               </li>
             ))}
           </ul>
@@ -230,7 +230,7 @@ export default function NieuweKlusPage() {
         <button
           onClick={handleOpslaan}
           disabled={opslaan || opnameStatus !== 'klaar'}
-          className="bg-blue-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+          className="bg-[#f97316] text-white rounded-lg py-3 text-sm font-semibold hover:bg-orange-500 disabled:opacity-40"
         >
           {opslaan ? stap : 'Klus opslaan →'}
         </button>

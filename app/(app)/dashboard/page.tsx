@@ -47,7 +47,7 @@ export default function DashboardPage() {
   const statusLabel: Record<string, { tekst: string; kleur: string }> = {
     nieuw: { tekst: 'Nieuw', kleur: 'bg-gray-100 text-gray-600' },
     getranscribeerd: { tekst: 'Getranscribeerd', kleur: 'bg-yellow-100 text-yellow-700' },
-    werkbon_klaar: { tekst: 'Werkbon klaar', kleur: 'bg-blue-100 text-blue-700' },
+    werkbon_klaar: { tekst: 'Werkbon klaar', kleur: 'bg-orange-100 text-orange-700' },
   }
 
   if (laden) return <div className="p-8 text-gray-500">Laden...</div>
@@ -56,18 +56,12 @@ export default function DashboardPage() {
     <div className="p-8 max-w-2xl">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <Link
-          href="/klussen/nieuw"
-          className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700"
-        >
-          + Nieuwe klus
-        </Link>
       </div>
 
       {klussen.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-gray-400 mb-4">Nog geen klussen.</p>
-          <Link href="/klussen/nieuw" className="text-blue-600 text-sm hover:underline">
+          <p className="text-gray-400 mb-4">Nog geen klussen aangemaakt.</p>
+          <Link href="/klussen/nieuw" className="text-[#f97316] text-sm font-medium hover:underline">
             Start je eerste klus →
           </Link>
         </div>
@@ -79,7 +73,7 @@ export default function DashboardPage() {
               <Link
                 key={klus.id}
                 href={`/klussen/${klus.id}`}
-                className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between hover:border-blue-300 transition-colors"
+                className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between hover:border-orange-300 transition-colors"
               >
                 <div>
                   <p className="font-medium text-gray-900">
