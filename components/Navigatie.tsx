@@ -24,7 +24,7 @@ export default function Navigatie() {
   return (
     <nav className="bg-[#1a2e4a] px-6 py-0 flex items-center justify-between shadow-md">
       <div className="flex items-center gap-8">
-        <Link href="/dashboard" className="flex items-center gap-2 py-4">
+        <Link href="/dashboard" className="flex items-center py-4">
           <span className="text-[#f97316] font-black text-xl tracking-tight">Vak</span>
           <span className="text-white font-black text-xl tracking-tight">buddy</span>
         </Link>
