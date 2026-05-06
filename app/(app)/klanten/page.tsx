@@ -123,11 +123,11 @@ export default function KlantenPage() {
     setFormulier((prev) => ({ ...prev, [veld]: waarde }))
   }
 
-  if (laden) return <div className="p-8 text-gray-500">Laden...</div>
+  if (laden) return <div className="p-4 md:p-8 text-gray-500">Laden...</div>
 
   return (
-    <div className="p-8 max-w-2xl">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 md:p-8 max-w-2xl">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Klanten</h1>
         <button
           onClick={openNieuw}

@@ -150,9 +150,9 @@ export default function NieuweKlusPage() {
   }
 
   return (
-    <div className="p-8 max-w-lg">
+    <div className="p-4 md:p-8 max-w-lg">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Nieuwe klus</h1>
-      <p className="text-gray-500 text-sm mb-8">Kies een klant en neem je klus in.</p>
+      <p className="text-gray-500 text-sm mb-6">Kies een klant en neem je klus in.</p>
 
       <div className="flex flex-col gap-6">
         {/* Klant kiezen */}
@@ -197,7 +197,7 @@ export default function NieuweKlusPage() {
           {opnameStatus === 'idle' && (
             <button
               onClick={startOpname}
-              className="flex items-center gap-2 bg-red-500 text-white rounded-xl px-6 py-4 text-base font-medium hover:bg-red-600 w-full justify-center"
+              className="flex items-center gap-3 bg-red-500 text-white rounded-xl px-6 py-5 text-lg font-semibold hover:bg-red-600 w-full justify-center"
             >
               🎙️ Start opname
             </button>
@@ -206,7 +206,7 @@ export default function NieuweKlusPage() {
           {opnameStatus === 'opnemen' && (
             <button
               onClick={stopOpname}
-              className="flex items-center gap-2 bg-gray-800 text-white rounded-xl px-6 py-4 text-base font-medium hover:bg-gray-900 w-full justify-center animate-pulse"
+              className="flex items-center gap-3 bg-gray-800 text-white rounded-xl px-6 py-5 text-lg font-semibold hover:bg-gray-900 w-full justify-center animate-pulse"
             >
               ⏹️ Stop opname
             </button>

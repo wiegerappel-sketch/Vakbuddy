@@ -122,13 +122,13 @@ export default function KlusPage() {
     setMailVersturen(false)
   }
 
-  if (laden) return <div className="p-8 text-gray-500">Laden...</div>
-  if (!klus) return <div className="p-8 text-red-500">Klus niet gevonden.</div>
+  if (laden) return <div className="p-4 md:p-8 text-gray-500">Laden...</div>
+  if (!klus) return <div className="p-4 md:p-8 text-red-500">Klus niet gevonden.</div>
 
   const werkbon = klus.werkbon_json as Werkbon | null
 
   return (
-    <div className="p-8 max-w-lg">
+    <div className="p-4 md:p-8 max-w-lg">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Klus</h1>
       {klant && <p className="text-gray-500 text-sm mb-6">Klant: {klant.naam}</p>}
 
@@ -318,8 +318,8 @@ function AudioOpnemer({ onKlaar, bezig }: { onKlaar: (blob: Blob) => void; bezig
 
   return (
     <div className="flex flex-col gap-4">
-      {status === 'idle' && <button onClick={start} disabled={bezig} className="bg-red-500 text-white rounded-xl px-6 py-4 text-base font-medium hover:bg-red-600 w-full">🎙️ Start opname</button>}
-      {status === 'opnemen' && <button onClick={stop} className="bg-gray-800 text-white rounded-xl px-6 py-4 text-base font-medium w-full animate-pulse">⏹️ Stop opname</button>}
+      {status === 'idle' && <button onClick={start} disabled={bezig} className="bg-red-500 text-white rounded-xl px-6 py-5 text-lg font-semibold hover:bg-red-600 w-full">🎙️ Start opname</button>}
+      {status === 'opnemen' && <button onClick={stop} className="bg-gray-800 text-white rounded-xl px-6 py-5 text-lg font-semibold w-full animate-pulse">⏹️ Stop opname</button>}
       {status === 'klaar' && audioBlobUrl && (
         <div className="flex flex-col gap-3">
           <audio controls src={audioBlobUrl} className="w-full" />

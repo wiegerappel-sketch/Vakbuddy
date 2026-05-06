@@ -50,13 +50,11 @@ export default function DashboardPage() {
     werkbon_klaar: { tekst: 'Werkbon klaar', kleur: 'bg-orange-100 text-orange-700' },
   }
 
-  if (laden) return <div className="p-8 text-gray-500">Laden...</div>
+  if (laden) return <div className="p-4 md:p-8 text-gray-500">Laden...</div>
 
   return (
-    <div className="p-8 max-w-2xl">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-      </div>
+    <div className="p-4 md:p-8 max-w-2xl">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
       {klussen.length === 0 ? (
         <div className="text-center py-16">

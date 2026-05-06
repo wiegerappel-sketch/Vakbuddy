@@ -47,11 +47,11 @@ export default function FacturenPage() {
     setLaden(false)
   }
 
-  if (laden) return <div className="p-8 text-gray-500">Laden...</div>
+  if (laden) return <div className="p-4 md:p-8 text-gray-500">Laden...</div>
 
   return (
-    <div className="p-8 max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Facturen</h1>
+    <div className="p-4 md:p-8 max-w-2xl">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Facturen</h1>
 
       {facturen.length === 0 ? (
         <p className="text-gray-400 text-sm">Nog geen facturen aangemaakt.</p>
