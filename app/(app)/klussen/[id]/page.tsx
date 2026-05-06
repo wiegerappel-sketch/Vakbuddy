@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Klant, Klus } from '@/types'
 
-type Materiaal = { naam: string; aantal: number; eenheid: string }
+type Materiaal = { naam: string; aantal: number; eenheid: string; prijs?: number }
 
 type Werkbon = {
   omschrijving: string
@@ -246,39 +246,72 @@ export default function KlusPage() {
                   <label className="text-xs text-gray-500 block mb-1">Materialen</label>
                   <div className="flex flex-col gap-2">
                     {bewerkWerkbon.materialen.map((m, i) => (
-                      <div key={i} className="flex gap-2 items-center">
-                        <input
-                          type="number"
-                          value={m.aantal}
-                          onChange={(e) => {
-                            const nieuw = [...bewerkWerkbon.materialen]
-                            nieuw[i] = { ...m, aantal: parseFloat(e.target.value) }
-                            setBewerkWerkbon({ ...bewerkWerkbon, materialen: nieuw })
-                          }}
-                          className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
-                          min="0"
-                        />
-                        <input
-                          type="text"
-                          value={m.naam}
-                          onChange={(e) => {
-                            const nieuw = [...bewerkWerkbon.materialen]
-                            nieuw[i] = { ...m, naam: e.target.value }
-                            setBewerkWerkbon({ ...bewerkWerkbon, materialen: nieuw })
-                          }}
-                          className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
-                        />
-                        <button
-                          onClick={() => setBewerkWerkbon({ ...bewerkWerkbon, materialen: bewerkWerkbon.materialen.filter((_, j) => j !== i) })}
-                          className="text-red-400 hover:text-red-600 text-sm px-1"
-                        >
-                          ✕
-                        </button>
+                      <div key={i} className="flex flex-col gap-1.5 bg-gray-50 rounded-lg p-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={m.naam}
+                            placeholder="Naam materiaal"
+                            onChange={(e) => {
+                              const nieuw = [...bewerkWerkbon.materialen]
+                              nieuw[i] = { ...m, naam: e.target.value }
+                              setBewerkWerkbon({ ...bewerkWerkbon, materialen: nieuw })
+                            }}
+                            className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                          />
+                          <button
+                            onClick={() => setBewerkWerkbon({ ...bewerkWerkbon, materialen: bewerkWerkbon.materialen.filter((_, j) => j !== i) })}
+                            className="text-red-400 hover:text-red-600 text-sm px-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={m.aantal}
+                            placeholder="Aantal"
+                            onChange={(e) => {
+                              const nieuw = [...bewerkWerkbon.materialen]
+                              nieuw[i] = { ...m, aantal: parseFloat(e.target.value) }
+                              setBewerkWerkbon({ ...bewerkWerkbon, materialen: nieuw })
+                            }}
+                            className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                            min="0"
+                          />
+                          <input
+                            type="text"
+                            value={m.eenheid}
+                            placeholder="stuk"
+                            onChange={(e) => {
+                              const nieuw = [...bewerkWerkbon.materialen]
+                              nieuw[i] = { ...m, eenheid: e.target.value }
+                              setBewerkWerkbon({ ...bewerkWerkbon, materialen: nieuw })
+                            }}
+                            className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                          />
+                          <div className="relative flex-1">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">€</span>
+                            <input
+                              type="number"
+                              value={m.prijs ?? ''}
+                              placeholder="0,00"
+                              onChange={(e) => {
+                                const nieuw = [...bewerkWerkbon.materialen]
+                                nieuw[i] = { ...m, prijs: parseFloat(e.target.value) || 0 }
+                                setBewerkWerkbon({ ...bewerkWerkbon, materialen: nieuw })
+                              }}
+                              className="w-full border border-gray-300 rounded-lg pl-6 pr-2 py-1.5 text-sm"
+                              min="0"
+                              step="0.01"
+                            />
+                          </div>
+                        </div>
                       </div>
                     ))}
                     <button
-                      onClick={() => setBewerkWerkbon({ ...bewerkWerkbon, materialen: [...bewerkWerkbon.materialen, { naam: '', aantal: 1, eenheid: 'stuk' }] })}
-                      className="text-sm text-[#f97316] hover:underline text-left"
+                      onClick={() => setBewerkWerkbon({ ...bewerkWerkbon, materialen: [...bewerkWerkbon.materialen, { naam: '', aantal: 1, eenheid: 'stuk', prijs: 0 }] })}
+                      className="text-sm text-[#f97316] hover:underline text-left mt-1"
                     >
                       + Materiaal toevoegen
                     </button>

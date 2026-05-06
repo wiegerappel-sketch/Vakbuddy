@@ -12,35 +12,55 @@ type Klus = {
   werkbon_json: { omschrijving: string } | null
 }
 
+type Stats = {
+  dezeMaxand: number
+  openstaand: number
+  totaalKlussen: number
+}
+
 export default function DashboardPage() {
   const [klussen, setKlussen] = useState<Klus[]>([])
+  const [stats, setStats] = useState<Stats>({ dezeMaxand: 0, openstaand: 0, totaalKlussen: 0 })
   const [laden, setLaden] = useState(true)
 
   useEffect(() => {
-    laadKlussen()
+    laadData()
   }, [])
 
-  async function laadKlussen() {
+  async function laadData() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
     const { data: bedrijf } = await supabase
-      .from('bedrijven')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
+      .from('bedrijven').select('id').eq('user_id', user.id).maybeSingle()
     if (!bedrijf) { setLaden(false); return }
 
-    const { data } = await supabase
-      .from('klussen')
-      .select('id, datum, status, werkbon_json, klanten(naam)')
-      .eq('bedrijf_id', bedrijf.id)
-      .order('aangemaakt_op', { ascending: false })
-      .limit(20)
+    const [klussenResult, facturenResult] = await Promise.all([
+      supabase
+        .from('klussen')
+        .select('id, datum, status, werkbon_json, klanten(naam)')
+        .eq('bedrijf_id', bedrijf.id)
+        .order('aangemaakt_op', { ascending: false })
+        .limit(10),
+      supabase
+        .from('facturen')
+        .select('totaal_incl_btw, betaald_op, aangemaakt_op')
+        .eq('bedrijf_id', bedrijf.id),
+    ])
 
-    setKlussen((data as unknown as Klus[]) ?? [])
+    const facturen = facturenResult.data ?? []
+    const nu = new Date()
+    const dezeMaxand = facturen
+      .filter((f) => {
+        const d = new Date(f.aangemaakt_op)
+        return d.getMonth() === nu.getMonth() && d.getFullYear() === nu.getFullYear()
+      })
+      .reduce((sum, f) => sum + Number(f.totaal_incl_btw), 0)
+    const openstaand = facturen.filter((f) => !f.betaald_op).length
+
+    setKlussen((klussenResult.data as unknown as Klus[]) ?? [])
+    setStats({ dezeMaxand, openstaand, totaalKlussen: klussenResult.data?.length ?? 0 })
     setLaden(false)
   }
 
@@ -56,8 +76,22 @@ export default function DashboardPage() {
     <div className="p-4 md:p-8 max-w-2xl">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
+      {/* Statistieken */}
+      <div className="grid grid-cols-2 gap-3 mb-8">
+        <div className="bg-[#1a2e4a] rounded-xl p-4">
+          <p className="text-xs text-blue-300 mb-1">Gefactureerd deze maand</p>
+          <p className="text-xl font-bold text-white">€ {stats.dezeMaxand.toFixed(2).replace('.', ',')}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500 mb-1">Openstaande facturen</p>
+          <p className="text-xl font-bold text-[#f97316]">{stats.openstaand}</p>
+        </div>
+      </div>
+
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Recente klussen</h2>
+
       {klussen.length === 0 ? (
-        <div className="text-center py-16">
+        <div className="text-center py-12">
           <p className="text-gray-400 mb-4">Nog geen klussen aangemaakt.</p>
           <Link href="/klussen/nieuw" className="text-[#f97316] text-sm font-medium hover:underline">
             Start je eerste klus →

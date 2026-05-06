@@ -19,7 +19,7 @@ const stijlen = StyleSheet.create({
   kolTotaal: { width: 80, textAlign: 'right' },
   headerTekst: { fontSize: 8, color: '#888', fontFamily: 'Helvetica-Bold' },
   totaalBlok: { marginTop: 24, alignItems: 'flex-end' },
-  totaalRij: { flexDirection: 'row', justifyContent: 'flex-end', gap: 0, marginBottom: 4 },
+  totaalRij: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 },
   totaalLabel: { width: 120, textAlign: 'right', color: '#555' },
   totaalWaarde: { width: 80, textAlign: 'right' },
   totaalIncl: { fontFamily: 'Helvetica-Bold', fontSize: 12 },
@@ -40,7 +40,8 @@ export type FactuurPdfResultaat = {
 
 export async function maakFactuurPdf(
   klus_id: string,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  bestaandFactuurnummer?: string
 ): Promise<FactuurPdfResultaat> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Niet ingelogd.')
@@ -52,25 +53,35 @@ export async function maakFactuurPdf(
   if (!bedrijf || !tarieven || !klus) throw new Error('Gegevens ontbreken.')
 
   const werkbon = klus.werkbon_json as {
-    omschrijving: string; uren: number;
-    materialen: { naam: string; aantal: number; eenheid: string }[];
+    omschrijving: string
+    uren: number
+    materialen: { naam: string; aantal: number; eenheid: string; prijs?: number }[]
     voorrijkosten_meenemen: boolean
   }
 
   const klant = klus.klanten as { naam: string; adres: string | null; postcode: string | null; plaats: string | null } | null
 
-  const { count } = await supabase.from('facturen').select('*', { count: 'exact', head: true }).eq('bedrijf_id', bedrijf.id)
-  const factuurnummer = `${new Date().getFullYear()}-${String((count ?? 0) + 1).padStart(3, '0')}`
+  let factuurnummer: string
+  if (bestaandFactuurnummer) {
+    factuurnummer = bestaandFactuurnummer
+  } else {
+    const { count } = await supabase.from('facturen').select('*', { count: 'exact', head: true }).eq('bedrijf_id', bedrijf.id)
+    factuurnummer = `${new Date().getFullYear()}-${String((count ?? 0) + 1).padStart(3, '0')}`
+  }
 
   const arbeidsBedrag = werkbon.uren * tarieven.uurloon
   const voorrijBedrag = werkbon.voorrijkosten_meenemen ? tarieven.voorrijkosten : 0
-  const totaalExclBtw = arbeidsBedrag + voorrijBedrag
+  const materialenBedrag = werkbon.materialen.reduce((sum, m) => sum + (m.prijs ?? 0) * m.aantal, 0)
+  const totaalExclBtw = arbeidsBedrag + voorrijBedrag + materialenBedrag
   const btwBedrag = totaalExclBtw * (tarieven.btw_percentage / 100)
   const totaalInclBtw = totaalExclBtw + btwBedrag
 
   const regels = [
     { omschrijving: werkbon.omschrijving, aantal: `${werkbon.uren} uur`, prijs: eur(tarieven.uurloon), totaal: eur(arbeidsBedrag) },
     ...(werkbon.voorrijkosten_meenemen ? [{ omschrijving: 'Voorrijkosten', aantal: '1x', prijs: eur(tarieven.voorrijkosten), totaal: eur(voorrijBedrag) }] : []),
+    ...werkbon.materialen
+      .filter((m) => m.prijs && m.prijs > 0)
+      .map((m) => ({ omschrijving: m.naam, aantal: `${m.aantal} ${m.eenheid}`, prijs: eur(m.prijs!), totaal: eur(m.prijs! * m.aantal) })),
   ]
 
   const pdf = await renderToBuffer(
