@@ -103,16 +103,24 @@ export default function KlusPage() {
   async function handleFactuurMaken() {
     setFactuurMaken(true)
     setFout('')
+    // Open window before async call — iOS blocks window.open after await
+    const pdfVenster = window.open('', '_blank')
     const response = await fetch('/api/factuur-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ klus_id: id }),
     })
-    if (!response.ok) { const result = await response.json(); setFout(result.fout ?? 'Factuur maken mislukt.'); setFactuurMaken(false); return }
+    if (!response.ok) {
+      pdfVenster?.close()
+      const result = await response.json()
+      setFout(result.fout ?? 'Factuur maken mislukt.')
+      setFactuurMaken(false)
+      return
+    }
     const blob = await response.blob()
     const url = URL.createObjectURL(blob)
-    window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 30000)
+    if (pdfVenster) pdfVenster.location.href = url
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
     const supabase = createClient()
     const { data } = await supabase.from('facturen').select('id').eq('klus_id', id).order('aangemaakt_op', { ascending: false }).limit(1).single()
     if (data) setFactuurId(data.id)
@@ -120,7 +128,7 @@ export default function KlusPage() {
   }
 
   async function handleMailVersturen() {
-    if (!factuurId) return
+    if (!factuurId) { setFout('Geen factuur gevonden. Maak eerst de PDF aan.'); return }
     setMailVersturen(true)
     setFout('')
     const response = await fetch('/api/factuur-mail', {
@@ -129,7 +137,11 @@ export default function KlusPage() {
       body: JSON.stringify({ factuur_id: factuurId }),
     })
     const result = await response.json()
-    if (!response.ok || result.fout) { setFout(result.fout ?? 'Mail versturen mislukt.') } else { setMailVerzonden(true) }
+    if (!response.ok || result.fout) {
+      setFout(`Mail mislukt: ${result.fout ?? response.status}`)
+    } else {
+      setMailVerzonden(true)
+    }
     setMailVersturen(false)
   }
 
