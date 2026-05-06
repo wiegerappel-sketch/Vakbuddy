@@ -45,6 +45,17 @@ export default function KlusPage() {
         setKlant(klantData)
       }
     }
+    const { data: factuur } = await supabase
+      .from('facturen')
+      .select('id, verzonden_op')
+      .eq('klus_id', id)
+      .order('aangemaakt_op', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (factuur) {
+      setFactuurId(factuur.id)
+      if (factuur.verzonden_op) setMailVerzonden(true)
+    }
     setLaden(false)
   }
 
