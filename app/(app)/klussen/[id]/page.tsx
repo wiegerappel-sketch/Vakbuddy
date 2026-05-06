@@ -51,8 +51,9 @@ export default function KlusPage() {
   async function handleTranscriberen(audioBlob: Blob) {
     setTranscriberen(true)
     setFout('')
+    const ext = audioBlob.type.includes('mp4') ? 'mp4' : audioBlob.type.includes('ogg') ? 'ogg' : 'webm'
     const formData = new FormData()
-    formData.append('audio', audioBlob, 'opname.webm')
+    formData.append('audio', audioBlob, `opname.${ext}`)
     const response = await fetch('/api/transcribe', { method: 'POST', body: formData })
     const result = await response.json()
     if (!response.ok || result.fout) { setFout(result.fout ?? 'Transcriptie mislukt.'); setTranscriberen(false); return }
@@ -298,12 +299,15 @@ function AudioOpnemer({ onKlaar, bezig }: { onKlaar: (blob: Blob) => void; bezig
 
   async function start() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    const mediaRecorder = new MediaRecorder(stream)
+    const mimeType = ['audio/webm', 'audio/mp4', 'audio/ogg'].find(
+      (t) => MediaRecorder.isTypeSupported(t)
+    ) ?? ''
+    const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
     mediaRecorderRef.current = mediaRecorder
     chunksRef.current = []
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+      const blob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType })
       blobRef.current = blob
       setAudioBlobUrl(URL.createObjectURL(blob))
       setStatus('klaar')

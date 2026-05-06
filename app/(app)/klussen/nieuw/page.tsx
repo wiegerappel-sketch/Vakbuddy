@@ -53,7 +53,10 @@ export default function NieuweKlusPage() {
     setFout('')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream)
+      const mimeType = ['audio/webm', 'audio/mp4', 'audio/ogg'].find(
+        (t) => MediaRecorder.isTypeSupported(t)
+      ) ?? ''
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
 
@@ -62,7 +65,7 @@ export default function NieuweKlusPage() {
       }
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const blob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType })
         audioBlobRef.current = blob
         setAudioBlobUrl(URL.createObjectURL(blob))
         setOpnameStatus('klaar')
@@ -133,8 +136,9 @@ export default function NieuweKlusPage() {
 
     // Meteen transcriberen
     setStap('Spraak omzetten naar tekst...')
+    const ext = audioBlobRef.current.type.includes('mp4') ? 'mp4' : audioBlobRef.current.type.includes('ogg') ? 'ogg' : 'webm'
     const formData = new FormData()
-    formData.append('audio', audioBlobRef.current, 'opname.webm')
+    formData.append('audio', audioBlobRef.current, `opname.${ext}`)
 
     const transcriptieResponse = await fetch('/api/transcribe', { method: 'POST', body: formData })
     const transcriptieResult = await transcriptieResponse.json()
