@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
+import { maakFactuurPdf } from '@/lib/maakFactuurPdf'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -34,18 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ fout: 'Klant heeft geen e-mailadres.' }, { status: 400 })
     }
 
-    // PDF opnieuw genereren voor de mail
-    const pdfResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/factuur-pdf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: request.headers.get('cookie') ?? '' },
-      body: JSON.stringify({ klus_id: factuur.klus_id }),
-    })
-
-    if (!pdfResponse.ok) {
-      return NextResponse.json({ fout: 'PDF genereren mislukt.' }, { status: 500 })
-    }
-
-    const pdfBuffer = await pdfResponse.arrayBuffer()
+    const { pdf } = await maakFactuurPdf(factuur.klus_id, supabase)
 
     const { error } = await resend.emails.send({
       from: `${bedrijf.naam ?? 'Vakbuddy'} <onboarding@resend.dev>`,
@@ -60,7 +50,7 @@ export async function POST(request: NextRequest) {
       attachments: [
         {
           filename: `factuur-${factuur.factuurnummer}.pdf`,
-          content: Buffer.from(pdfBuffer),
+          content: Buffer.from(pdf),
         },
       ],
     })
