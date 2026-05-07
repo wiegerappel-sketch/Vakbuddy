@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     const { data: factuur } = await supabase
       .from('facturen')
-      .select('*, klussen(*, klanten(*))')
+      .select('*, klussen!klus_id(*, klanten!klant_id(*))')
       .eq('id', factuur_id)
       .single()
 

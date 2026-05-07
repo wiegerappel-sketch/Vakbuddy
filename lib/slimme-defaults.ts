@@ -13,7 +13,7 @@ export async function haalSlimmeDefaults(
 ): Promise<SlimmeDefaults> {
   const { data: klussen } = await supabase
     .from('klussen')
-    .select('werkbon_json, klanten(type_klant)')
+    .select('werkbon_json, klanten!klant_id(type_klant)')
     .eq('bedrijf_id', bedrijfId)
     .in('status', ['compleet', 'gefactureerd', 'betaald'])
     .order('datum', { ascending: false })

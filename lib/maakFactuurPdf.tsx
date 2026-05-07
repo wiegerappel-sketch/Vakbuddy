@@ -48,7 +48,7 @@ export async function maakFactuurPdf(
 
   const { data: bedrijf } = await supabase.from('bedrijven').select('*').eq('user_id', user.id).single()
   const { data: tarieven } = await supabase.from('tarieven').select('*').eq('bedrijf_id', bedrijf?.id).single()
-  const { data: klus } = await supabase.from('klussen').select('*, klanten(*)').eq('id', klus_id).single()
+  const { data: klus } = await supabase.from('klussen').select('*, klanten!klant_id(*)').eq('id', klus_id).single()
 
   if (!bedrijf || !tarieven || !klus) throw new Error('Gegevens ontbreken.')
 
