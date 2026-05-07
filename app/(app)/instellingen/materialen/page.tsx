@@ -253,26 +253,48 @@ export default function MaterialenPage() {
     const supabase = createClient()
     const vandaag = new Date().toISOString().split('T')[0]
 
-    const teUpdaten = factuurResultaat.regels.filter((r) => r.toepassen && r.materiaal_id)
-    for (const regel of teUpdaten) {
-      const mat = materialen.find((m) => m.id === regel.materiaal_id)
-      const marge = mat?.marge_percentage ?? 35
-      const verkoopprijs = regel.prijs_per_eenheid * (1 + marge / 100)
-      await supabase.from('materialen').update({
-        inkoopprijs: regel.prijs_per_eenheid,
-        prijs: verkoopprijs,
-        laatste_inkoop_datum: vandaag,
-      }).eq('id', regel.materiaal_id!)
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: bedrijf } = user
+      ? await supabase.from('bedrijven').select('id').eq('user_id', user.id).single()
+      : { data: null }
 
-      // Regel opslaan in inkoopfactuur_regels als factuur_id bekend is
-      if (factuurResultaat.factuur_id) {
+    const teVerwerken = factuurResultaat.regels.filter((r) => r.toepassen)
+    for (const regel of teVerwerken) {
+      let materiaalId = regel.materiaal_id
+
+      if (!materiaalId && bedrijf) {
+        // Nieuw materiaal aanmaken
+        const marge = 35
+        const verkoopprijs = regel.prijs_per_eenheid * (1 + marge / 100)
+        const { data: nieuw } = await supabase.from('materialen').insert({
+          bedrijf_id: bedrijf.id,
+          naam: regel.omschrijving,
+          eenheid: regel.eenheid,
+          inkoopprijs: regel.prijs_per_eenheid,
+          marge_percentage: marge,
+          prijs: verkoopprijs,
+          laatste_inkoop_datum: vandaag,
+        }).select('id').single()
+        materiaalId = nieuw?.id ?? null
+      } else if (materiaalId) {
+        const mat = materialen.find((m) => m.id === materiaalId)
+        const marge = mat?.marge_percentage ?? 35
+        const verkoopprijs = regel.prijs_per_eenheid * (1 + marge / 100)
+        await supabase.from('materialen').update({
+          inkoopprijs: regel.prijs_per_eenheid,
+          prijs: verkoopprijs,
+          laatste_inkoop_datum: vandaag,
+        }).eq('id', materiaalId)
+      }
+
+      if (factuurResultaat.factuur_id && materiaalId) {
         await supabase.from('inkoopfactuur_regels').insert({
           factuur_id: factuurResultaat.factuur_id,
           omschrijving: regel.omschrijving,
           aantal: regel.aantal,
           eenheid: regel.eenheid,
           prijs_per_eenheid: regel.prijs_per_eenheid,
-          materiaal_id: regel.materiaal_id,
+          materiaal_id: materiaalId,
         })
       }
     }
@@ -402,7 +424,7 @@ export default function MaterialenPage() {
                           <p className="text-xs text-gray-500">→ {regel.materiaal_naam}</p>
                         )}
                         {!regel.materiaal_id && (
-                          <p className="text-xs text-orange-500">Niet gevonden in bibliotheek</p>
+                          <p className="text-xs text-orange-500">Nieuw — wordt toegevoegd aan bibliotheek</p>
                         )}
                       </div>
                       <div className="text-right shrink-0">
@@ -422,9 +444,9 @@ export default function MaterialenPage() {
               <div className="flex gap-3 items-center">
                 <button
                   onClick={pasPrijzenToe}
-                  disabled={toepassenBusy || factuurResultaat.regels.every((r) => !r.toepassen || !r.materiaal_id)}
+                  disabled={toepassenBusy || factuurResultaat.regels.every((r) => !r.toepassen)}
                   className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-orange-500 disabled:opacity-50">
-                  {toepassenBusy ? 'Prijzen bijwerken...' : `${factuurResultaat.regels.filter((r) => r.toepassen && r.materiaal_id).length} prijzen toepassen`}
+                  {toepassenBusy ? 'Prijzen bijwerken...' : `${factuurResultaat.regels.filter((r) => r.toepassen).length} prijzen toepassen`}
                 </button>
                 <button onClick={() => { setFactuurResultaat(null); setFactuurBestand(null); setFactuurFout(null) }}
                   className="text-sm text-gray-500 hover:text-gray-700">
