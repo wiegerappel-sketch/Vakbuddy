@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     const { pdf, factuurnummer, totaalExclBtw, btwBedrag, totaalInclBtw } = await maakFactuurPdf(klus_id, supabase)
 
-    const { error: insertFout } = await supabase.from('facturen').insert({
+    const { data: nieuweFactuur, error: insertFout } = await supabase.from('facturen').insert({
       klus_id,
       bedrijf_id: bedrijf.id,
       factuurnummer,
@@ -37,13 +37,14 @@ export async function POST(request: NextRequest) {
       totaal_excl_btw: totaalExclBtw,
       btw_bedrag: btwBedrag,
       totaal_incl_btw: totaalInclBtw,
-    })
+    }).select('id').single()
     if (insertFout) return NextResponse.json({ fout: `Factuur opslaan mislukt: ${insertFout.message}` }, { status: 500 })
 
     return new NextResponse(pdf as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="factuur-${factuurnummer}.pdf"`,
+        'X-Factuur-Id': nieuweFactuur?.id ?? '',
       },
     })
   } catch (error) {

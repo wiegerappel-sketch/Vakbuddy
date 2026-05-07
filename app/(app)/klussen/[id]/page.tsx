@@ -332,13 +332,12 @@ export default function KlusPage() {
       setFactuurMaken(false)
       return
     }
+    const nieuweFactuurId = response.headers.get('X-Factuur-Id')
     const blob = await response.blob()
     const url = URL.createObjectURL(blob)
     if (pdfVenster) pdfVenster.location.href = url
     setTimeout(() => URL.revokeObjectURL(url), 60000)
-    const supabase = createClient()
-    const { data } = await supabase.from('facturen').select('id').eq('klus_id', id).order('created_at', { ascending: false }).limit(1).single()
-    if (data) setFactuurId(data.id)
+    if (nieuweFactuurId) setFactuurId(nieuweFactuurId)
     setFactuurMaken(false)
   }
 
