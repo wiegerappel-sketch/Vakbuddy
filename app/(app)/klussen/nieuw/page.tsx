@@ -1,16 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Klant } from '@/types'
 
 type OpnameStatus = 'idle' | 'opnemen' | 'klaar'
 
 export default function NieuweKlusPage() {
   const router = useRouter()
-  const [klanten, setKlanten] = useState<Klant[]>([])
-  const [gekozenKlantId, setGekozenKlantId] = useState('')
   const [opnameStatus, setOpnameStatus] = useState<OpnameStatus>('idle')
   const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null)
   const [opslaan, setOpslaan] = useState(false)
@@ -20,34 +17,6 @@ export default function NieuweKlusPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const audioBlobRef = useRef<Blob | null>(null)
-
-  useEffect(() => {
-    laadKlanten()
-  }, [])
-
-  async function laadKlanten() {
-    const supabase = createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) { setFout('Niet ingelogd.'); return }
-
-    const { data: bedrijf, error: bedrijfError } = await supabase
-      .from('bedrijven')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (bedrijfError) { setFout('Fout bij laden bedrijf: ' + bedrijfError.message); return }
-    if (!bedrijf) { setFout('Geen bedrijf gevonden. Sla eerst je bedrijfsgegevens op.'); return }
-
-    const { data, error: klantenError } = await supabase
-      .from('klanten')
-      .select('*')
-      .eq('bedrijf_id', bedrijf.id)
-      .order('naam')
-
-    if (klantenError) { setFout('Fout bij laden klanten: ' + klantenError.message); return }
-    setKlanten(data ?? [])
-  }
 
   async function startOpname() {
     setFout('')
@@ -90,10 +59,6 @@ export default function NieuweKlusPage() {
   }
 
   async function handleOpslaan() {
-    if (!gekozenKlantId) {
-      setFout('Kies eerst een klant.')
-      return
-    }
     if (!audioBlobRef.current) {
       setFout('Neem eerst audio op.')
       return
@@ -120,11 +85,7 @@ export default function NieuweKlusPage() {
 
     const { data: klus, error } = await supabase
       .from('klussen')
-      .insert({
-        bedrijf_id: bedrijf.id,
-        klant_id: gekozenKlantId,
-        status: 'nieuw',
-      })
+      .insert({ bedrijf_id: bedrijf.id, status: 'nieuw' })
       .select()
       .single()
 
@@ -134,7 +95,6 @@ export default function NieuweKlusPage() {
       return
     }
 
-    // Meteen transcriberen
     setStap('Spraak omzetten naar tekst...')
     const ext = audioBlobRef.current.type.includes('mp4') ? 'mp4' : audioBlobRef.current.type.includes('ogg') ? 'ogg' : 'webm'
     const formData = new FormData()
@@ -156,34 +116,16 @@ export default function NieuweKlusPage() {
   return (
     <div className="p-4 md:p-8 max-w-lg">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Nieuwe klus</h1>
-      <p className="text-gray-500 text-sm mb-6">Kies een klant en neem je klus in.</p>
+      <p className="text-gray-500 text-sm mb-6">Spreek je klus in. Noem ook de naam en het adres van de klant.</p>
 
       <div className="flex flex-col gap-6">
-        {/* Klant kiezen */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Klant</label>
-          <select
-            value={gekozenKlantId}
-            onChange={(e) => setGekozenKlantId(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
-          >
-            <option value="">-- Kies een klant --</option>
-            {klanten.map((klant) => (
-              <option key={klant.id} value={klant.id}>
-                {klant.naam} {klant.plaats ? `— ${klant.plaats}` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Checklist */}
         <div className="bg-[#1a2e4a] rounded-xl p-4">
           <p className="text-sm font-semibold text-white mb-2">Vergeet dit niet te benoemen:</p>
           <ul className="flex flex-col gap-1">
             {[
+              'Naam en adres van de klant',
               'Wat heb je gedaan?',
               'Hoeveel uur heb je gewerkt?',
-              'Met hoeveel man?',
               'Welke materialen heb je gebruikt?',
               'Ben je voorgereden?',
             ].map((item) => (
@@ -194,7 +136,6 @@ export default function NieuweKlusPage() {
           </ul>
         </div>
 
-        {/* Audio opnemen */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">Klus inspreken</label>
 
