@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function NieuweKlusPage() {
   const router = useRouter()
+  const [fout, setFout] = useState('')
 
   useEffect(() => {
     async function maakKlus() {
@@ -30,12 +31,16 @@ export default function NieuweKlusPage() {
         .select('id')
         .single()
 
-      if (error || !klus) { router.push('/klussen'); return }
+      if (error || !klus) {
+        setFout(error?.message ?? 'Klus aanmaken mislukt.')
+        return
+      }
 
-      router.replace(`/klussen/${klus.id}`)
+      window.location.href = `/klussen/${klus.id}`
     }
     maakKlus()
   }, [])
 
+  if (fout) return <div className="p-4 md:p-8 text-red-500">Fout: {fout}</div>
   return <div className="p-4 md:p-8 text-gray-500">Nieuwe klus aanmaken...</div>
 }
