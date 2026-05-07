@@ -29,14 +29,16 @@ export async function POST(request: NextRequest) {
 
     const { pdf, factuurnummer, totaalExclBtw, btwBedrag, totaalInclBtw } = await maakFactuurPdf(klus_id, supabase)
 
-    await supabase.from('facturen').insert({
+    const { error: insertFout } = await supabase.from('facturen').insert({
       klus_id,
       bedrijf_id: bedrijf.id,
       factuurnummer,
+      datum: new Date().toISOString().split('T')[0],
       totaal_excl_btw: totaalExclBtw,
       btw_bedrag: btwBedrag,
       totaal_incl_btw: totaalInclBtw,
     })
+    if (insertFout) console.error('Factuur insert fout:', insertFout.message)
 
     return new NextResponse(pdf as unknown as BodyInit, {
       headers: {
