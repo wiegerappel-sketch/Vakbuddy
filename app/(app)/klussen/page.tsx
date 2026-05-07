@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Klus = {
@@ -21,11 +22,12 @@ const statusLabel: Record<string, { tekst: string; kleur: string }> = {
 }
 
 export default function KlussenPage() {
+  const searchParams = useSearchParams()
   const [klussen, setKlussen] = useState<Klus[]>([])
   const [gefilterd, setGefilterd] = useState<Klus[]>([])
   const [laden, setLaden] = useState(true)
   const [zoek, setZoek] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string>('alle')
+  const [filterStatus, setFilterStatus] = useState<string>(searchParams.get('status') ?? 'alle')
 
   useEffect(() => {
     laadKlussen()

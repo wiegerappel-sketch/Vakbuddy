@@ -119,6 +119,9 @@ export default function DashboardPage() {
               </Link>
             ))}
           </div>
+          <Link href="/klussen?status=concept" className="text-xs text-yellow-700 font-medium hover:underline mt-2 inline-block">
+            Bekijk alle concepten →
+          </Link>
         </div>
       )}
 
