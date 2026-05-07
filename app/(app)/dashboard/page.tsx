@@ -45,7 +45,7 @@ export default function DashboardPage() {
         .limit(10),
       supabase
         .from('facturen')
-        .select('totaal_incl_btw, betaald_op, created_at')
+        .select('totaal_incl_btw, betaald_op, datum')
         .eq('bedrijf_id', bedrijf.id),
       supabase
         .from('klussen')
@@ -60,7 +60,7 @@ export default function DashboardPage() {
     const nu = new Date()
     const dezeMaxand = facturen
       .filter((f) => {
-        const d = new Date(f.created_at)
+        const d = new Date(f.datum)
         return d.getMonth() === nu.getMonth() && d.getFullYear() === nu.getFullYear()
       })
       .reduce((sum, f) => sum + Number(f.totaal_incl_btw), 0)
