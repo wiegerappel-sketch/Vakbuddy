@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -22,6 +22,10 @@ const statusLabel: Record<string, { tekst: string; kleur: string }> = {
 }
 
 export default function KlussenPage() {
+  return <Suspense><KlussenInhoud /></Suspense>
+}
+
+function KlussenInhoud() {
   const searchParams = useSearchParams()
   const [klussen, setKlussen] = useState<Klus[]>([])
   const [gefilterd, setGefilterd] = useState<Klus[]>([])
