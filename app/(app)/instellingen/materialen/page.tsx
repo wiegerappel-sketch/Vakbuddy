@@ -107,9 +107,17 @@ export default function MaterialenPage() {
 
   const verkooppreview = berekenVerkoopprijs(parseFloat(matInkoopprijs) || null, parseFloat(matMarge) || null)
 
-  async function handleMatOpslaan(e: React.FormEvent) {
-    e.preventDefault()
+  // Prijssprong berekenen voor waarschuwing
+  const oudePrijs = matBewerken?.inkoopprijs ?? null
+  const nieuwePrijs = parseFloat(matInkoopprijs) || null
+  const prijsVerschilPct = oudePrijs && nieuwePrijs && oudePrijs > 0
+    ? Math.abs((nieuwePrijs - oudePrijs) / oudePrijs * 100)
+    : null
+  const [wachtOpBevestiging, setWachtOpBevestiging] = useState(false)
+
+  async function slaMateriaalOp() {
     setMatOpslaan(true)
+    setWachtOpBevestiging(false)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -140,6 +148,16 @@ export default function MaterialenPage() {
     setMatFormulierOpen(false)
     setMatOpslaan(false)
     laadAlles()
+  }
+
+  async function handleMatOpslaan(e: React.FormEvent) {
+    e.preventDefault()
+    // Grote prijssprong (>40%) → bevestiging vragen
+    if (prijsVerschilPct !== null && prijsVerschilPct > 40) {
+      setWachtOpBevestiging(true)
+      return
+    }
+    await slaMateriaalOp()
   }
 
   async function handleMatVerwijderen(id: string) {
@@ -309,13 +327,43 @@ export default function MaterialenPage() {
                     <span className="text-gray-500"> / {matEenheid}</span>
                   </div>
                 )}
-                <div className="flex gap-3 mt-1">
-                  <button type="submit" disabled={matOpslaan}
-                    className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-orange-500 disabled:opacity-50">
-                    {matOpslaan ? 'Opslaan...' : 'Opslaan'}
-                  </button>
-                  <button type="button" onClick={() => setMatFormulierOpen(false)} className="text-sm text-gray-500">Annuleren</button>
-                </div>
+
+                {/* Prijssprong 15-40%: melding maar geen blokkering */}
+                {prijsVerschilPct !== null && prijsVerschilPct > 15 && prijsVerschilPct <= 40 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm text-yellow-800">
+                    ⚠️ Prijs wijzigt {prijsVerschilPct.toFixed(0)}% t.o.v. vorige inkoopprijs (€ {oudePrijs?.toFixed(2).replace('.', ',')})
+                  </div>
+                )}
+
+                {/* Prijssprong >40%: bevestiging vereist */}
+                {wachtOpBevestiging && (
+                  <div className="bg-red-50 border border-red-300 rounded-lg px-3 py-3 flex flex-col gap-2">
+                    <p className="text-sm font-semibold text-red-800">Grote prijssprong — klopt dit?</p>
+                    <p className="text-sm text-red-700">
+                      Was € {oudePrijs?.toFixed(2).replace('.', ',')}, nieuw € {nieuwePrijs?.toFixed(2).replace('.', ',')} ({prijsVerschilPct?.toFixed(0)}% verschil)
+                    </p>
+                    <div className="flex gap-2 mt-1">
+                      <button type="button" onClick={slaMateriaalOp}
+                        className="bg-red-600 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-red-700">
+                        Ja, opslaan
+                      </button>
+                      <button type="button" onClick={() => setWachtOpBevestiging(false)}
+                        className="text-sm text-gray-600 hover:text-gray-800">
+                        Annuleren
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!wachtOpBevestiging && (
+                  <div className="flex gap-3 mt-1">
+                    <button type="submit" disabled={matOpslaan}
+                      className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-orange-500 disabled:opacity-50">
+                      {matOpslaan ? 'Opslaan...' : 'Opslaan'}
+                    </button>
+                    <button type="button" onClick={() => setMatFormulierOpen(false)} className="text-sm text-gray-500">Annuleren</button>
+                  </div>
+                )}
               </form>
             </div>
           )}
