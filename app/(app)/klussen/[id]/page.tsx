@@ -123,8 +123,8 @@ export default function KlusPage() {
     const result = await response.json()
     if (!response.ok || result.fout) { setFout(result.fout ?? 'Transcriptie mislukt.'); setTranscriberen(false); return }
     const supabase = createClient()
-    await supabase.from('klussen').update({ transcriptie: result.tekst, status: 'getranscribeerd' }).eq('id', id)
-    setKlus((prev) => prev ? { ...prev, transcriptie: result.tekst, status: 'getranscribeerd' } : prev)
+    await supabase.from('klussen').update({ transcriptie: result.tekst }).eq('id', id)
+    setKlus((prev) => prev ? { ...prev, transcriptie: result.tekst } : prev)
     setTranscriberen(false)
   }
 

@@ -5,7 +5,7 @@ export type Klus = {
   datum: string
   transcriptie: string | null
   werkbon_json: unknown | null
-  status: string
+  status: 'concept' | 'compleet' | 'gefactureerd' | 'betaald'
   ontbrekende_velden: string[] | null
   compleet_op: string | null
 }

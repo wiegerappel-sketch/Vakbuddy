@@ -74,13 +74,10 @@ export default function DashboardPage() {
   }
 
   const statusLabel: Record<string, { tekst: string; kleur: string }> = {
-    nieuw:           { tekst: 'Nieuw',             kleur: 'bg-gray-100 text-gray-600' },
-    getranscribeerd: { tekst: 'Getranscribeerd',   kleur: 'bg-yellow-100 text-yellow-700' },
-    werkbon_klaar:   { tekst: 'Werkbon klaar',     kleur: 'bg-orange-100 text-orange-700' },
-    concept:         { tekst: 'Concept',           kleur: 'bg-yellow-100 text-yellow-700' },
-    compleet:        { tekst: 'Compleet',          kleur: 'bg-green-100 text-green-700' },
-    gefactureerd:    { tekst: 'Gefactureerd',      kleur: 'bg-blue-100 text-blue-700' },
-    betaald:         { tekst: 'Betaald',           kleur: 'bg-green-100 text-green-700' },
+    concept:      { tekst: 'Concept',      kleur: 'bg-yellow-100 text-yellow-700' },
+    compleet:     { tekst: 'Compleet',     kleur: 'bg-green-100 text-green-700' },
+    gefactureerd: { tekst: 'Gefactureerd', kleur: 'bg-blue-100 text-blue-700' },
+    betaald:      { tekst: 'Betaald',      kleur: 'bg-green-100 text-green-700' },
   }
 
   if (laden) return <div className="p-4 md:p-8 text-gray-500">Laden...</div>
