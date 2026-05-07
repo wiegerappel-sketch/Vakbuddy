@@ -574,6 +574,21 @@ export default function MaterialenPage() {
             </div>
           )}
 
+          <div className="flex gap-4 mb-2 flex-wrap">
+            {[
+              { dot: 'bg-green-500', tekst: 'Prijs actueel (< 4 weken)' },
+              { dot: 'bg-yellow-400', tekst: '4–12 weken geleden' },
+              { dot: 'bg-orange-400', tekst: '3–6 maanden geleden' },
+              { dot: 'bg-red-500', tekst: '> 6 maanden oud' },
+              { dot: 'bg-gray-300', tekst: 'Geen datum bekend' },
+            ].map(({ dot, tekst }) => (
+              <div key={tekst} className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                <span className="text-xs text-gray-500">{tekst}</span>
+              </div>
+            ))}
+          </div>
+
           {materialen.length > 5 && (
             <input type="text" value={zoekterm} onChange={(e) => setZoekterm(e.target.value)}
               placeholder="Zoek materiaal..."
