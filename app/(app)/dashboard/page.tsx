@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [concepten, setConcepten] = useState<Klus[]>([])
   const [stats, setStats] = useState<Stats>({ dezeMaxand: 0, openstaand: 0, totaalKlussen: 0 })
   const [laden, setLaden] = useState(true)
+  const [debugInfo, setDebugInfo] = useState<string>('')
 
   useEffect(() => {
     laadData()
@@ -70,6 +71,7 @@ export default function DashboardPage() {
     setKlussen((klussenResult.data as unknown as Klus[]) ?? [])
     setConcepten((conceptenResult.data as unknown as Klus[]) ?? [])
     setStats({ dezeMaxand, openstaand, totaalKlussen: klussenResult.data?.length ?? 0 })
+    setDebugInfo(JSON.stringify({ conceptenAantal: conceptenResult.data?.length ?? 0, conceptenFout: conceptenResult.error?.message ?? null, klussenAantal: klussenResult.data?.length ?? 0, klussenFout: klussenResult.error?.message ?? null }))
     setLaden(false)
   }
 
@@ -85,6 +87,7 @@ export default function DashboardPage() {
   return (
     <div className="p-4 md:p-8 max-w-2xl">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
+      {debugInfo && <p className="text-xs text-gray-400 mb-4 break-all">{debugInfo}</p>}
 
       {/* Statistieken */}
       <div className="grid grid-cols-2 gap-3 mb-8">
