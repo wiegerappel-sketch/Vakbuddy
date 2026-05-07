@@ -17,6 +17,8 @@ export type Klant = {
   plaats: string | null
   email: string | null
   telefoon: string | null
+  aangemaakt_via: string | null
+  aangemaakt_op_klus_id: string | null
 }
 
 export type Bedrijf = {

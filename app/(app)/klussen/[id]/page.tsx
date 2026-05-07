@@ -105,13 +105,18 @@ export default function KlusPage() {
     const response = await fetch('/api/extract-werkbon', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcriptie: klus.transcriptie }),
+      body: JSON.stringify({ transcriptie: klus.transcriptie, klus_id: id }),
     })
     const result = await response.json()
     if (!response.ok || result.fout) { setFout(result.fout ?? 'Werkbon maken mislukt.'); setWerkbonMaken(false); return }
     const supabase = createClient()
     await supabase.from('klussen').update({ werkbon_json: result.werkbon, status: 'werkbon_klaar' }).eq('id', id)
     setKlus((prev) => prev ? { ...prev, werkbon_json: result.werkbon, status: 'werkbon_klaar' } : prev)
+
+    // Klant bijwerken vanuit extractie-resultaat
+    if (result.klant?.type === 'exact' || result.klant?.type === 'fuzzy' || result.klant?.type === 'nieuw') {
+      setKlant(result.klant.klant)
+    }
 
     // Materialen zonder prijs verzamelen voor vragen (max 2)
     const onbekend = (result.werkbon.materialen as Materiaal[])
