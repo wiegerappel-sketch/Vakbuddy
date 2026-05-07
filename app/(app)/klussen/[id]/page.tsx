@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Klant, Klus } from '@/types'
 
-type Materiaal = { naam: string; aantal: number; eenheid: string; prijs?: number }
+type Materiaal = { naam: string; aantal: number; eenheid: string; prijs?: number; bibliotheek_id?: string | null; match_zekerheid?: string }
 
 type Werkbon = {
   omschrijving: string
@@ -44,6 +44,8 @@ export default function KlusPage() {
   const [bibliotheek, setBibliotheek] = useState<BibliotheekMateriaal[]>([])
   const [materiaalZoek, setMateriaalZoek] = useState('')
   const [zoekOpen, setZoekOpen] = useState(false)
+  const [vragen, setVragen] = useState<Materiaal[]>([])
+  const [vraagAntwoorden, setVraagAntwoorden] = useState<Record<number, string>>({})
 
   useEffect(() => {
     laadKlus()
@@ -110,6 +112,15 @@ export default function KlusPage() {
     const supabase = createClient()
     await supabase.from('klussen').update({ werkbon_json: result.werkbon, status: 'werkbon_klaar' }).eq('id', id)
     setKlus((prev) => prev ? { ...prev, werkbon_json: result.werkbon, status: 'werkbon_klaar' } : prev)
+
+    // Materialen zonder prijs verzamelen voor vragen (max 2)
+    const onbekend = (result.werkbon.materialen as Materiaal[])
+      .filter((m) => m.match_zekerheid !== 'hoog' && !m.prijs)
+      .slice(0, 2)
+    if (onbekend.length > 0) {
+      setVragen(onbekend)
+      setVraagAntwoorden({})
+    }
     setWerkbonMaken(false)
   }
 
@@ -192,6 +203,62 @@ export default function KlusPage() {
             <button onClick={handleWerkbonMaken} disabled={werkbonMaken} className="bg-[#f97316] text-white rounded-lg py-3 text-sm font-semibold hover:bg-orange-500 disabled:opacity-50">
               {werkbonMaken ? 'Werkbon wordt gemaakt...' : 'Maak werkbon →'}
             </button>
+          )}
+
+          {/* Vragen over onbekende materialen */}
+          {vragen.length > 0 && (
+            <div className="bg-[#1a2e4a] rounded-xl p-4 flex flex-col gap-4">
+              <p className="text-white text-sm font-semibold">Wat heb je hiervoor betaald?</p>
+              {vragen.map((m, i) => (
+                <div key={i} className="flex flex-col gap-1.5">
+                  <label className="text-blue-200 text-sm">
+                    {m.naam} ({m.aantal} {m.eenheid})
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">€</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0,00"
+                        value={vraagAntwoorden[i] ?? ''}
+                        onChange={(e) => setVraagAntwoorden({ ...vraagAntwoorden, [i]: e.target.value })}
+                        className="w-full pl-7 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]"
+                      />
+                    </div>
+                    <span className="text-blue-300 text-xs self-center">/ {m.eenheid}</span>
+                  </div>
+                </div>
+              ))}
+              <div className="flex gap-3 mt-1">
+                <button
+                  onClick={async () => {
+                    const werkbonKopie = JSON.parse(JSON.stringify(werkbon)) as Werkbon
+                    vragen.forEach((v, i) => {
+                      const prijs = parseFloat(vraagAntwoorden[i] ?? '')
+                      if (!isNaN(prijs)) {
+                        const idx = werkbonKopie.materialen.findIndex((m) => m.naam === v.naam)
+                        if (idx >= 0) werkbonKopie.materialen[idx].prijs = prijs
+                      }
+                    })
+                    const supabase = createClient()
+                    await supabase.from('klussen').update({ werkbon_json: werkbonKopie }).eq('id', id)
+                    setKlus((prev) => prev ? { ...prev, werkbon_json: werkbonKopie } : prev)
+                    setVragen([])
+                  }}
+                  className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-orange-500"
+                >
+                  Opslaan
+                </button>
+                <button
+                  onClick={() => setVragen([])}
+                  className="text-blue-300 text-sm hover:text-white"
+                >
+                  Sla over
+                </button>
+              </div>
+            </div>
           )}
 
           {werkbon && !werkbonBewerken && (
