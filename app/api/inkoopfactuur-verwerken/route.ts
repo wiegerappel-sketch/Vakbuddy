@@ -3,8 +3,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/messages'
 import { createClient } from '@/lib/supabase/server'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 type Regel = {
   omschrijving: string
   aantal: number
@@ -20,6 +18,7 @@ type UitleesResultaat = {
 
 export async function POST(request: NextRequest) {
   try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const formData = await request.formData()
     const bestand = formData.get('bestand') as File | null
     if (!bestand) return NextResponse.json({ fout: 'Geen bestand meegestuurd.' }, { status: 400 })

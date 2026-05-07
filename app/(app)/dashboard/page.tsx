@@ -10,7 +10,6 @@ type Klus = {
   status: string
   klanten: { naam: string } | null
   werkbon_json: { omschrijving: string } | null
-  ontbrekende_velden: string[] | null
 }
 
 type Stats = {
@@ -41,20 +40,20 @@ export default function DashboardPage() {
     const [klussenResult, facturenResult, conceptenResult] = await Promise.all([
       supabase
         .from('klussen')
-        .select('id, datum, status, werkbon_json, klanten(naam), ontbrekende_velden')
+        .select('id, datum, status, werkbon_json, klanten(naam)')
         .eq('bedrijf_id', bedrijf.id)
-        .order('aangemaakt_op', { ascending: false })
+        .order('datum', { ascending: false })
         .limit(10),
       supabase
         .from('facturen')
-        .select('totaal_incl_btw, betaald_op, aangemaakt_op')
+        .select('totaal_incl_btw, betaald_op, created_at')
         .eq('bedrijf_id', bedrijf.id),
       supabase
         .from('klussen')
-        .select('id, datum, status, werkbon_json, klanten(naam), ontbrekende_velden')
+        .select('id, datum, status, werkbon_json, klanten(naam)')
         .eq('bedrijf_id', bedrijf.id)
         .eq('status', 'concept')
-        .order('aangemaakt_op', { ascending: false })
+        .order('datum', { ascending: false })
         .limit(5),
     ])
 
@@ -62,7 +61,7 @@ export default function DashboardPage() {
     const nu = new Date()
     const dezeMaxand = facturen
       .filter((f) => {
-        const d = new Date(f.aangemaakt_op)
+        const d = new Date(f.created_at)
         return d.getMonth() === nu.getMonth() && d.getFullYear() === nu.getFullYear()
       })
       .reduce((sum, f) => sum + Number(f.totaal_incl_btw), 0)
@@ -119,11 +118,6 @@ export default function DashboardPage() {
                   <p className="text-sm font-medium text-gray-900">
                     {k.klanten?.naam ?? k.werkbon_json?.omschrijving ?? 'Onbekende klus'}
                   </p>
-                  {k.ontbrekende_velden && k.ontbrekende_velden.length > 0 && (
-                    <p className="text-xs text-yellow-700">
-                      {k.ontbrekende_velden.length} veld{k.ontbrekende_velden.length > 1 ? 'en' : ''} ontbreken
-                    </p>
-                  )}
                 </div>
                 <span className="text-yellow-600 text-sm">Afmaken →</span>
               </Link>

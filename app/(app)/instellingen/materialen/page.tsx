@@ -4,7 +4,12 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Categorie = { id: string; naam: string; default_marge_percentage: number }
-type Materiaal = { id: string; naam: string; prijs: number; eenheid: string; inkoopprijs: number | null; marge_percentage: number | null; categorie_id: string | null; laatste_inkoop_datum: string | null }
+type Materiaal = {
+  id: string; naam: string; prijs: number; eenheid: string
+  inkoopprijs: number | null; marge_percentage: number | null
+  categorie_id: string | null; laatste_inkoop_datum: string | null
+  inkoopprijs_geschiedenis: { datum: string; prijs: number }[] | null
+}
 
 type FactuurRegel = {
   omschrijving: string
@@ -35,6 +40,170 @@ const DEFAULT_CATEGORIEEN = [
   { naam: 'Overig', default_marge_percentage: 30 },
 ]
 
+type MargeStatus = 'ok' | 'drift' | 'stijging' | 'geen_data'
+
+function margeStatus(m: Materiaal): { status: MargeStatus; effectiefPct: number | null; driftPct: number | null; prijsstijgingPct: number | null } {
+  const effectiefPct = m.inkoopprijs && m.inkoopprijs > 0 && m.prijs
+    ? Math.round((m.prijs - m.inkoopprijs) / m.inkoopprijs * 100)
+    : null
+
+  const driftPct = effectiefPct !== null && m.marge_percentage !== null
+    ? effectiefPct - m.marge_percentage
+    : null
+
+  const geschiedenis = m.inkoopprijs_geschiedenis ?? []
+  const oudste = geschiedenis.length > 1 ? geschiedenis[0].prijs : null
+  const nieuwste = geschiedenis.length > 1 ? geschiedenis[geschiedenis.length - 1].prijs : null
+  const prijsstijgingPct = oudste && nieuwste && oudste > 0
+    ? Math.round((nieuwste - oudste) / oudste * 100)
+    : null
+
+  if (effectiefPct === null) return { status: 'geen_data', effectiefPct, driftPct, prijsstijgingPct }
+  if (driftPct !== null && driftPct < -5) return { status: 'drift', effectiefPct, driftPct, prijsstijgingPct }
+  if (prijsstijgingPct !== null && prijsstijgingPct > 15) return { status: 'stijging', effectiefPct, driftPct, prijsstijgingPct }
+  return { status: 'ok', effectiefPct, driftPct, prijsstijgingPct }
+}
+
+function MargeAnalyse({ materialen, categorieen }: { materialen: Materiaal[]; categorieen: Categorie[] }) {
+  const metData = materialen.filter((m) => m.inkoopprijs && m.prijs)
+  const drift = metData.filter((m) => margeStatus(m).status === 'drift')
+  const stijging = metData.filter((m) => margeStatus(m).status === 'stijging' && margeStatus(m).status !== 'drift')
+  const ok = metData.filter((m) => margeStatus(m).status === 'ok')
+  const geenData = materialen.filter((m) => !m.inkoopprijs || !m.prijs)
+
+  const gemiddeldMarge = metData.length > 0
+    ? Math.round(metData.reduce((sum, m) => sum + (margeStatus(m).effectiefPct ?? 0), 0) / metData.length)
+    : null
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Samenvatting */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: 'Gem. marge', waarde: gemiddeldMarge !== null ? `${gemiddeldMarge}%` : '—', kleur: 'text-gray-900' },
+          { label: 'Marge-drift', waarde: drift.length, kleur: drift.length > 0 ? 'text-red-600' : 'text-green-600' },
+          { label: 'Prijsstijging', waarde: stijging.length, kleur: stijging.length > 0 ? 'text-orange-500' : 'text-green-600' },
+        ].map((s) => (
+          <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-3 text-center">
+            <p className={`text-xl font-bold ${s.kleur}`}>{s.waarde}</p>
+            <p className="text-xs text-gray-500">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Marge-drift — effectieve marge < bedoelde marge */}
+      {drift.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-red-600 mb-2">Marge lager dan ingesteld</h3>
+          <p className="text-xs text-gray-500 mb-3">De inkoopprijs is gestegen maar de verkoopprijs is niet meegestegen.</p>
+          <div className="flex flex-col gap-2">
+            {drift.map((m) => {
+              const s = margeStatus(m)
+              const cat = categorieen.find((c) => c.id === m.categorie_id)
+              return (
+                <div key={m.id} className="bg-white border border-red-200 rounded-xl px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{m.naam}</p>
+                      {cat && <p className="text-xs text-gray-400">{cat.naam}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-red-600">{s.effectiefPct}%</p>
+                      <p className="text-xs text-gray-400">doel: {m.marge_percentage}%</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                    <span>Inkoop €{Number(m.inkoopprijs).toFixed(2)}</span>
+                    <span>→</span>
+                    <span>Verkoop €{Number(m.prijs).toFixed(2)}</span>
+                    {s.driftPct !== null && (
+                      <span className="ml-auto font-semibold text-red-500">{s.driftPct} pp onder doel</span>
+                    )}
+                  </div>
+                  {/* Prijsgeschiedenis mini-bar */}
+                  {(m.inkoopprijs_geschiedenis ?? []).length > 1 && (
+                    <div className="mt-2 flex items-end gap-0.5 h-6">
+                      {(m.inkoopprijs_geschiedenis ?? []).slice(-8).map((entry, i, arr) => {
+                        const max = Math.max(...arr.map((e) => e.prijs))
+                        const pct = Math.round(entry.prijs / max * 100)
+                        return (
+                          <div key={i} title={`€${entry.prijs} (${entry.datum})`}
+                            className="flex-1 bg-red-200 rounded-sm transition-all"
+                            style={{ height: `${pct}%` }} />
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Prijsstijging — inkoop duurder, maar marge nog ok */}
+      {stijging.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-orange-600 mb-2">Inkoopprijs gestegen</h3>
+          <p className="text-xs text-gray-500 mb-3">Marge is nog intact, maar de inkoopprijs is significant gestegen ten opzichte van de eerste registratie.</p>
+          <div className="flex flex-col gap-2">
+            {stijging.map((m) => {
+              const s = margeStatus(m)
+              const geschiedenis = m.inkoopprijs_geschiedenis ?? []
+              const oudste = geschiedenis[0]
+              return (
+                <div key={m.id} className="bg-white border border-orange-200 rounded-xl px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-gray-900">{m.naam}</p>
+                    <span className="shrink-0 bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                      +{s.prijsstijgingPct}% duurder
+                    </span>
+                  </div>
+                  {oudste && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Was €{oudste.prijs.toFixed(2)} ({oudste.datum}) → nu €{Number(m.inkoopprijs).toFixed(2)}
+                    </p>
+                  )}
+                  <div className="mt-2 flex items-end gap-0.5 h-6">
+                    {geschiedenis.slice(-8).map((entry, i, arr) => {
+                      const max = Math.max(...arr.map((e) => e.prijs))
+                      const pct = Math.round(entry.prijs / max * 100)
+                      return (
+                        <div key={i} title={`€${entry.prijs} (${entry.datum})`}
+                          className="flex-1 bg-orange-200 rounded-sm"
+                          style={{ height: `${pct}%` }} />
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Alles ok */}
+      {ok.length > 0 && drift.length === 0 && stijging.length === 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+          <p className="text-sm font-semibold text-green-800">✓ Alle marges zien er goed uit</p>
+          <p className="text-xs text-green-700 mt-1">{ok.length} materialen hebben een gezonde marge</p>
+        </div>
+      )}
+
+      {/* Geen data */}
+      {geenData.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-400">{geenData.length} materialen hebben geen inkoop- of verkoopprijs en worden niet geanalyseerd.</p>
+        </div>
+      )}
+
+      {metData.length === 0 && (
+        <p className="text-sm text-gray-400 text-center py-8">Voeg inkoopprijzen toe aan je materialen om de marge-analyse te zien.</p>
+      )}
+    </div>
+  )
+}
+
 function berekenVerkoopprijs(inkoopprijs: number | null, marge: number | null): number | null {
   if (!inkoopprijs || !marge) return null
   return inkoopprijs * (1 + marge / 100)
@@ -44,7 +213,7 @@ export default function MaterialenPage() {
   const [categorieen, setCategorieen] = useState<Categorie[]>([])
   const [materialen, setMaterialen] = useState<Materiaal[]>([])
   const [laden, setLaden] = useState(true)
-  const [tab, setTab] = useState<'materialen' | 'categorieen' | 'inkoopfacturen'>('materialen')
+  const [tab, setTab] = useState<'materialen' | 'categorieen' | 'inkoopfacturen' | 'marge-analyse'>('materialen')
 
   // Inkoopfactuur upload
   const [factuurBestand, setFactuurBestand] = useState<File | null>(null)
@@ -289,7 +458,7 @@ export default function MaterialenPage() {
 
       if (factuurResultaat.factuur_id && materiaalId) {
         await supabase.from('inkoopfactuur_regels').insert({
-          factuur_id: factuurResultaat.factuur_id,
+          inkoopfactuur_id: factuurResultaat.factuur_id,
           omschrijving: regel.omschrijving,
           aantal: regel.aantal,
           eenheid: regel.eenheid,
@@ -314,6 +483,7 @@ export default function MaterialenPage() {
           ['materialen', `Materialen (${materialen.length})`],
           ['categorieen', 'Categorieën'],
           ['inkoopfacturen', 'Inkoopfactuur'],
+          ['marge-analyse', 'Marge-analyse'],
         ] as const).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)}
             className={`text-sm pb-2 border-b-2 -mb-px font-medium transition-colors ${tab === t ? 'border-[#f97316] text-[#f97316]' : 'border-transparent text-gray-500'}`}>
@@ -468,6 +638,8 @@ export default function MaterialenPage() {
           )}
         </div>
       )}
+
+      {tab === 'marge-analyse' && <MargeAnalyse materialen={materialen} categorieen={categorieen} />}
 
       {tab === 'materialen' && (
         <div>

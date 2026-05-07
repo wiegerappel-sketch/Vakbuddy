@@ -5,8 +5,6 @@ import { maakWerkbonEnKlantPrompt } from '@/lib/prompts/werkbon-en-klant'
 import { matchKlantInLijst } from '@/lib/klant-matching'
 import type { Klant } from '@/types'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 // Zet het nieuwe { waarde, zekerheid } formaat om naar het bestaande werkbon-formaat
 // zodat de rest van de app geen wijzigingen nodig heeft.
 function flattenWerkbon(raw: Record<string, unknown>) {
@@ -36,6 +34,7 @@ function flattenWerkbon(raw: Record<string, unknown>) {
 
 export async function POST(request: NextRequest) {
   try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const { transcriptie, klus_id } = await request.json()
     if (!transcriptie) return NextResponse.json({ fout: 'Geen transcriptie meegestuurd.' }, { status: 400 })
 
@@ -82,6 +81,18 @@ export async function POST(request: NextRequest) {
         ? ((rawKlant?.adres as Record<string, unknown>)?.plaats as { waarde?: string } | null)?.waarde ?? null
         : null
 
+      async function logMatch(matchType: string, klantId: string | null, score: number | null) {
+        await supabase.from('klant_match_logs').insert({
+          bedrijf_id: bedrijfId,
+          klus_id: klus_id ?? null,
+          klant_id: klantId,
+          gezochte_naam: naamWaarde,
+          gezochte_plaats: plaatsWaarde,
+          match_type: matchType,
+          match_score: score,
+        })
+      }
+
       if (naamWaarde) {
         const { data: klanten } = await supabase
           .from('klanten').select('*').eq('bedrijf_id', bedrijfId).order('naam')
@@ -92,7 +103,8 @@ export async function POST(request: NextRequest) {
           const gevondenKlant = matchResultaat.match.klant
           klantResultaat = { type: matchResultaat.type, klant: gevondenKlant }
 
-          // Klus koppelen aan gevonden klant
+          await logMatch(matchResultaat.type, gevondenKlant.id, matchResultaat.match.score)
+
           if (klus_id) {
             await supabase.from('klussen').update({ klant_id: gevondenKlant.id }).eq('id', klus_id)
           }
@@ -101,6 +113,7 @@ export async function POST(request: NextRequest) {
             type: 'meerdere',
             kandidaten: matchResultaat.kandidaten.map((k) => k.klant),
           }
+          await logMatch('meerdere', null, matchResultaat.kandidaten[0]?.score ?? null)
         } else {
           // Geen match — nieuwe klant aanmaken
           const straatWaarde = (rawKlant?.adres as Record<string, unknown> | null)
@@ -134,6 +147,7 @@ export async function POST(request: NextRequest) {
 
           if (nieuweKlant) {
             klantResultaat = { type: 'nieuw', klant: nieuweKlant as Klant }
+            await logMatch('nieuw', nieuweKlant.id, null)
             if (klus_id) {
               await supabase.from('klussen').update({ klant_id: nieuweKlant.id }).eq('id', klus_id)
             }
@@ -141,10 +155,12 @@ export async function POST(request: NextRequest) {
         }
       } else {
         klantResultaat = { type: 'naam_onbekend' }
+        await logMatch('naam_onbekend', null, null)
       }
     }
 
-    return NextResponse.json({ werkbon, klant: klantResultaat })
+    const meerdereKlussen = (raw.meerdere_klussen as boolean | null) ?? false
+    return NextResponse.json({ werkbon, klant: klantResultaat, meerdere_klussen: meerdereKlussen })
   } catch (error) {
     const bericht = error instanceof Error ? error.message : String(error)
     return NextResponse.json({ fout: `Werkbon maken mislukt: ${bericht}` }, { status: 500 })

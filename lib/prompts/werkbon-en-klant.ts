@@ -116,5 +116,9 @@ Geef ALLEEN geldige JSON terug, geen uitleg of tekst erbuiten.
     "twijfels": []
   },
   "meerdere_klussen": false
-}`
+}
+
+Als de vakman meerdere klanten in één opname noemt (bv. "bij Jansen en daarna bij Pietersen"), zet dan:
+"meerdere_klussen": true
+en geef in "klant" de EERSTE klant. De rest wordt niet geëxtraheerd — de app vraagt later welke klant bedoeld wordt.`
 }

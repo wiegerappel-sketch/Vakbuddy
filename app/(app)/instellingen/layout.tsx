@@ -10,6 +10,7 @@ export default function InstellingenLayout({ children }: { children: React.React
     { href: '/instellingen', label: 'Bedrijfsgegevens' },
     { href: '/instellingen/tarieven', label: 'Tarieven' },
     { href: '/instellingen/materialen', label: 'Materialen' },
+    { href: '/instellingen/bulk-import', label: 'Facturen importeren' },
   ]
 
   return (

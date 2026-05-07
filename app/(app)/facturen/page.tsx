@@ -41,7 +41,7 @@ export default function FacturenPage() {
       .from('facturen')
       .select('id, klus_id, factuurnummer, datum, totaal_incl_btw, verzonden_op, betaald_op, klussen(klanten(naam))')
       .eq('bedrijf_id', bedrijf.id)
-      .order('aangemaakt_op', { ascending: false })
+      .order('datum', { ascending: false })
 
     setFacturen((data as unknown as Factuur[]) ?? [])
     setLaden(false)
@@ -78,6 +78,8 @@ export default function FacturenPage() {
     setBetaaldBezig(null)
   }
 
+  const [filterStatus, setFilterStatus] = useState<'alle' | 'openstaand' | 'betaald'>('openstaand')
+
   const openstaand = facturen.filter((f) => !f.betaald_op)
   const totaalDezeMaxand = facturen
     .filter((f) => {
@@ -87,6 +89,12 @@ export default function FacturenPage() {
     })
     .reduce((sum, f) => sum + Number(f.totaal_incl_btw), 0)
 
+  const gefilterd = facturen.filter((f) => {
+    if (filterStatus === 'openstaand') return !f.betaald_op
+    if (filterStatus === 'betaald') return !!f.betaald_op
+    return true
+  })
+
   if (laden) return <div className="p-4 md:p-8 text-gray-500">Laden...</div>
 
   return (
@@ -94,7 +102,7 @@ export default function FacturenPage() {
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Facturen</h1>
 
       {/* Statistieken */}
-      <div className="grid grid-cols-2 gap-3 mb-8">
+      <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-xs text-gray-500 mb-1">Deze maand</p>
           <p className="text-xl font-bold text-gray-900">€ {totaalDezeMaxand.toFixed(2).replace('.', ',')}</p>
@@ -105,11 +113,30 @@ export default function FacturenPage() {
         </div>
       </div>
 
-      {facturen.length === 0 ? (
-        <p className="text-gray-400 text-sm">Nog geen facturen aangemaakt.</p>
+      {/* Filter */}
+      <div className="flex gap-1 mb-4">
+        {([['openstaand', 'Openstaand'], ['alle', 'Alle'], ['betaald', 'Betaald']] as const).map(([val, label]) => (
+          <button
+            key={val}
+            onClick={() => setFilterStatus(val)}
+            className={`text-xs px-3 py-2 rounded-lg font-medium transition-colors ${
+              filterStatus === val
+                ? 'bg-[#1a2e4a] text-white'
+                : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-400'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {gefilterd.length === 0 ? (
+        <p className="text-gray-400 text-sm">
+          {facturen.length === 0 ? 'Nog geen facturen aangemaakt.' : 'Geen facturen gevonden.'}
+        </p>
       ) : (
         <div className="flex flex-col gap-3">
-          {facturen.map((factuur) => (
+          {gefilterd.map((factuur) => (
             <div key={factuur.id} className="bg-white border border-gray-200 rounded-xl p-4">
               <div className="flex items-start justify-between mb-3">
                 <div>

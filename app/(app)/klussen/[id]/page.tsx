@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Klant, Klus } from '@/types'
 import { checkVeldenCompleet, VELD_LABELS } from '@/lib/werkbon-compleetheid'
+import { haalSlimmeDefaults, pctLabel, type SlimmeDefaults } from '@/lib/slimme-defaults'
 
 type Materiaal = { naam: string; aantal: number; eenheid: string; prijs?: number; bibliotheek_id?: string | null; match_zekerheid?: string }
 
@@ -55,6 +56,7 @@ export default function KlusPage() {
     kandidaten?: Klant[]
   } | null>(null)
   const [gekozenKandidaatId, setGekozenKandidaatId] = useState<string>('')
+  const [meerdereKlussen, setMeerdereKlussen] = useState(false)
   // Doorklik-menu
   const [doorklikRij, setDoorklikRij] = useState<string[]>([])
   const [dlEmail, setDlEmail] = useState('')
@@ -63,6 +65,9 @@ export default function KlusPage() {
   const [dlUrenAndere, setDlUrenAndere] = useState('')
   const [dlOmschrijving, setDlOmschrijving] = useState('')
   const [dlDatumAndere, setDlDatumAndere] = useState('')
+  const [postcodeBezig, setPostcodeBezig] = useState(false)
+  const [postcodeFout, setPostcodeFout] = useState('')
+  const [slimmeDefaults, setSlimmeDefaults] = useState<SlimmeDefaults>({})
 
   useEffect(() => {
     laadKlus()
@@ -82,7 +87,7 @@ export default function KlusPage() {
       .from('facturen')
       .select('id, verzonden_op')
       .eq('klus_id', id)
-      .order('aangemaakt_op', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
     if (factuur) {
@@ -93,8 +98,12 @@ export default function KlusPage() {
     if (user) {
       const { data: bedrijf } = await supabase.from('bedrijven').select('id').eq('user_id', user.id).maybeSingle()
       if (bedrijf) {
-        const { data: mat } = await supabase.from('materialen').select('*').eq('bedrijf_id', bedrijf.id).order('naam')
-        setBibliotheek(mat ?? [])
+        const [matResult, defaultsResult] = await Promise.all([
+          supabase.from('materialen').select('*').eq('bedrijf_id', bedrijf.id).order('naam'),
+          haalSlimmeDefaults(supabase, bedrijf.id),
+        ])
+        setBibliotheek(matResult.data ?? [])
+        setSlimmeDefaults(defaultsResult)
       }
     }
     setLaden(false)
@@ -130,6 +139,7 @@ export default function KlusPage() {
     })
     const result = await response.json()
     if (!response.ok || result.fout) { setFout(result.fout ?? 'Werkbon maken mislukt.'); setWerkbonMaken(false); return }
+    if (result.meerdere_klussen) setMeerdereKlussen(true)
     const supabase = createClient()
 
     // Bepaal effectieve klant voor compleetheidscheck (state is nog niet bijgewerkt)
@@ -239,6 +249,10 @@ export default function KlusPage() {
       wb.geen_materiaal = true; wb.materialen = []
       await supabase.from('klussen').update({ werkbon_json: wb }).eq('id', id)
       setKlus((prev) => prev ? { ...prev, werkbon_json: wb } : prev)
+    } else if (veld === 'voorrijkosten') {
+      wb.voorrijkosten_meenemen = waarde as boolean
+      await supabase.from('klussen').update({ werkbon_json: wb }).eq('id', id)
+      setKlus((prev) => prev ? { ...prev, werkbon_json: wb } : prev)
     } else if (veld === 'datum') {
       await supabase.from('klussen').update({ datum: waarde as string }).eq('id', id)
       setKlus((prev) => prev ? { ...prev, datum: waarde as string } : prev)
@@ -280,7 +294,28 @@ export default function KlusPage() {
     setBewerkWerkbon(null)
   }
 
+  async function zoekPostcode() {
+    const pc = dlAdres.postcode.replace(/\s/g, '').toUpperCase()
+    const nr = dlAdres.huisnummer.trim()
+    if (!pc || !nr) { setPostcodeFout('Vul postcode én huisnummer in.'); return }
+    setPostcodeBezig(true)
+    setPostcodeFout('')
+    try {
+      const res = await fetch(`https://postcode.tech/api/v1/postcode?postcode=${pc}&number=${nr}`)
+      if (!res.ok) throw new Error('Niet gevonden')
+      const data = await res.json()
+      setDlAdres((prev) => ({ ...prev, straat: data.street ?? prev.straat, plaats: data.city ?? prev.plaats, postcode: pc }))
+    } catch {
+      setPostcodeFout('Postcode niet gevonden. Vul straat en plaats handmatig in.')
+    }
+    setPostcodeBezig(false)
+  }
+
   async function handleFactuurMaken() {
+    if (klus?.status === 'concept') {
+      setFout(`Werkbon is nog niet compleet. Vul eerst de ontbrekende velden in: ${(klus.ontbrekende_velden ?? []).map((v) => VELD_LABELS[v] ?? v).join(', ')}.`)
+      return
+    }
     setFactuurMaken(true)
     setFout('')
     // Open window before async call — iOS blocks window.open after await
@@ -302,7 +337,7 @@ export default function KlusPage() {
     if (pdfVenster) pdfVenster.location.href = url
     setTimeout(() => URL.revokeObjectURL(url), 60000)
     const supabase = createClient()
-    const { data } = await supabase.from('facturen').select('id').eq('klus_id', id).order('aangemaakt_op', { ascending: false }).limit(1).single()
+    const { data } = await supabase.from('facturen').select('id').eq('klus_id', id).order('created_at', { ascending: false }).limit(1).single()
     if (data) setFactuurId(data.id)
     setFactuurMaken(false)
   }
@@ -514,6 +549,16 @@ export default function KlusPage() {
             </div>
           )}
 
+          {/* Meerdere klussen in één opname */}
+          {meerdereKlussen && !klantBevestiging && doorklikRij.length === 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <p className="text-sm font-semibold text-blue-800 mb-1">📎 Meerdere klanten gedetecteerd</p>
+              <p className="text-sm text-blue-700">
+                Je opname bevat meerdere klanten. Alleen de eerste is hier verwerkt — maak voor de andere klanten een nieuwe klus aan.
+              </p>
+            </div>
+          )}
+
           {/* Concept-banner: ontbrekende velden — alleen tonen als doorklik niet actief */}
           {werkbon && !klantBevestiging && doorklikRij.length === 0 && klus.ontbrekende_velden && klus.ontbrekende_velden.length > 0 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
@@ -573,17 +618,22 @@ export default function KlusPage() {
                 <div className="flex flex-col gap-3">
                   <p className="text-blue-200 text-sm">Adres van {klant?.naam ?? 'de klant'}?</p>
                   <div className="flex gap-2">
-                    <input type="text" value={dlAdres.straat} onChange={(e) => setDlAdres({ ...dlAdres, straat: e.target.value })} placeholder="Straat"
-                      className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                    <input type="text" value={dlAdres.postcode} onChange={(e) => { setDlAdres({ ...dlAdres, postcode: e.target.value }); setPostcodeFout('') }} placeholder="Postcode"
+                      className="w-28 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
                     <input type="text" value={dlAdres.huisnummer} onChange={(e) => setDlAdres({ ...dlAdres, huisnummer: e.target.value })} placeholder="Nr."
                       className="w-20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                    <button onClick={zoekPostcode} disabled={postcodeBezig || !dlAdres.postcode || !dlAdres.huisnummer}
+                      className="bg-white/20 hover:bg-white/30 text-white rounded-lg px-3 py-2 text-xs font-medium disabled:opacity-40">
+                      {postcodeBezig ? '...' : 'Zoek'}
+                    </button>
                   </div>
+                  {postcodeFout && <p className="text-red-300 text-xs">{postcodeFout}</p>}
                   <div className="flex gap-2">
-                    <input type="text" value={dlAdres.postcode} onChange={(e) => setDlAdres({ ...dlAdres, postcode: e.target.value })} placeholder="Postcode"
-                      className="w-28 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
-                    <input type="text" value={dlAdres.plaats} onChange={(e) => setDlAdres({ ...dlAdres, plaats: e.target.value })} placeholder="Plaats"
+                    <input type="text" value={dlAdres.straat} onChange={(e) => setDlAdres({ ...dlAdres, straat: e.target.value })} placeholder="Straat"
                       className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
                   </div>
+                  <input type="text" value={dlAdres.plaats} onChange={(e) => setDlAdres({ ...dlAdres, plaats: e.target.value })} placeholder="Plaats"
+                    className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
                   <div className="flex gap-3">
                     <button onClick={() => (dlAdres.straat || dlAdres.plaats) && slaAntwoordOp('klant_adres', dlAdres)}
                       disabled={!dlAdres.straat.trim() && !dlAdres.plaats.trim()}
@@ -598,15 +648,25 @@ export default function KlusPage() {
               {doorklikRij[0] === 'klant_type' && (
                 <div className="flex flex-col gap-3">
                   <p className="text-blue-200 text-sm">Particulier of zakelijk?</p>
+                  {slimmeDefaults.klant_type && (
+                    <p className="text-blue-400 text-xs">
+                      Suggestie op basis van {pctLabel(slimmeDefaults.klant_type.percentage)}
+                    </p>
+                  )}
                   <div className="flex gap-3">
-                    <button onClick={() => slaAntwoordOp('klant_type', 'particulier')}
-                      className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
-                      Particulier
-                    </button>
-                    <button onClick={() => slaAntwoordOp('klant_type', 'zakelijk')}
-                      className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
-                      Zakelijk
-                    </button>
+                    {(['particulier', 'zakelijk'] as const).map((type) => {
+                      const isDefault = slimmeDefaults.klant_type?.waarde === type
+                      return (
+                        <button key={type} onClick={() => slaAntwoordOp('klant_type', type)}
+                          className={`flex-1 rounded-lg py-3 text-sm font-medium capitalize transition-colors ${
+                            isDefault
+                              ? 'bg-[#f97316] text-white hover:bg-orange-500'
+                              : 'bg-white/10 hover:bg-white/20 text-white'
+                          }`}>
+                          {type.charAt(0).toUpperCase() + type.slice(1)}{isDefault ? ' ✓' : ''}
+                        </button>
+                      )
+                    })}
                   </div>
                   <button onClick={slaVeldOver} className="text-blue-300 text-sm text-left">Later invullen</button>
                 </div>
@@ -641,13 +701,25 @@ export default function KlusPage() {
               {doorklikRij[0] === 'aantal_mensen' && (
                 <div className="flex flex-col gap-3">
                   <p className="text-blue-200 text-sm">Met hoeveel man heb je gewerkt?</p>
+                  {slimmeDefaults.aantal_mensen && (
+                    <p className="text-blue-400 text-xs">
+                      Suggestie op basis van {pctLabel(slimmeDefaults.aantal_mensen.percentage)}
+                    </p>
+                  )}
                   <div className="flex gap-2">
-                    {([['Alleen', 1], ['2 man', 2], ['3 man', 3], ['4+', 4]] as [string, number][]).map(([label, val]) => (
-                      <button key={val} onClick={() => slaAntwoordOp('aantal_mensen', val)}
-                        className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
-                        {label}
-                      </button>
-                    ))}
+                    {([['Alleen', 1], ['2 man', 2], ['3 man', 3], ['4+', 4]] as [string, number][]).map(([label, val]) => {
+                      const isDefault = slimmeDefaults.aantal_mensen?.waarde === val
+                      return (
+                        <button key={val} onClick={() => slaAntwoordOp('aantal_mensen', val)}
+                          className={`flex-1 rounded-lg py-3 text-sm font-medium transition-colors ${
+                            isDefault
+                              ? 'bg-[#f97316] text-white hover:bg-orange-500'
+                              : 'bg-white/10 hover:bg-white/20 text-white'
+                          }`}>
+                          {label}{isDefault ? ' ✓' : ''}
+                        </button>
+                      )
+                    })}
                   </div>
                   <button onClick={slaVeldOver} className="text-blue-300 text-sm text-left">Later invullen</button>
                 </div>
@@ -681,6 +753,23 @@ export default function KlusPage() {
                     className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 rounded-lg py-3 text-sm font-medium">
                     Materialen al ingevuld / later toevoegen
                   </button>
+                </div>
+              )}
+
+              {doorklikRij[0] === 'voorrijkosten' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Voorrijkosten meenemen op de factuur?</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => slaAntwoordOp('voorrijkosten', true)}
+                      className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
+                      Ja
+                    </button>
+                    <button onClick={() => slaAntwoordOp('voorrijkosten', false)}
+                      className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
+                      Nee
+                    </button>
+                  </div>
+                  <button onClick={slaVeldOver} className="text-blue-300 text-sm text-left">Later invullen</button>
                 </div>
               )}
 
@@ -742,15 +831,32 @@ export default function KlusPage() {
                 )}
               </div>
               <div className="flex flex-col gap-2 mt-4">
-                <button onClick={handleFactuurMaken} disabled={factuurMaken} className="bg-[#f97316] text-white rounded-lg py-3 text-sm font-semibold hover:bg-orange-500 disabled:opacity-50 w-full">
-                  {factuurMaken ? 'Factuur wordt gemaakt...' : '📄 Factuur downloaden'}
-                </button>
-                {factuurId && !mailVerzonden && (
-                  <button onClick={handleMailVersturen} disabled={mailVersturen} className="bg-[#1a2e4a] text-white rounded-lg py-3 text-sm font-semibold hover:bg-[#223a5e] disabled:opacity-50 w-full">
-                    {mailVersturen ? 'Mail wordt verstuurd...' : '✉️ Factuur mailen naar klant'}
-                  </button>
+                {klus?.status === 'concept' ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <p className="text-sm font-semibold text-yellow-800 mb-1">⚠️ Werkbon nog niet compleet</p>
+                    <p className="text-xs text-yellow-700 mb-2">
+                      Vul eerst in: {(klus.ontbrekende_velden ?? []).map((v) => VELD_LABELS[v] ?? v).join(', ')}.
+                    </p>
+                    <button
+                      onClick={() => setDoorklikRij(klus.ontbrekende_velden as string[])}
+                      className="text-xs font-semibold text-yellow-800 underline"
+                    >
+                      Nu afmaken →
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={handleFactuurMaken} disabled={factuurMaken} className="bg-[#f97316] text-white rounded-lg py-3 text-sm font-semibold hover:bg-orange-500 disabled:opacity-50 w-full">
+                      {factuurMaken ? 'Factuur wordt gemaakt...' : '📄 Factuur downloaden'}
+                    </button>
+                    {factuurId && !mailVerzonden && (
+                      <button onClick={handleMailVersturen} disabled={mailVersturen} className="bg-[#1a2e4a] text-white rounded-lg py-3 text-sm font-semibold hover:bg-[#223a5e] disabled:opacity-50 w-full">
+                        {mailVersturen ? 'Mail wordt verstuurd...' : '✉️ Factuur mailen naar klant'}
+                      </button>
+                    )}
+                    {mailVerzonden && <p className="text-green-600 text-sm text-center">✓ Factuur verstuurd naar {klant?.email}</p>}
+                  </>
                 )}
-                {mailVerzonden && <p className="text-green-600 text-sm text-center">✓ Factuur verstuurd naar {klant?.email}</p>}
               </div>
             </div>
           )}

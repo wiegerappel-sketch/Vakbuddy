@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 
 const links = [
   { href: '/dashboard', label: 'Dashboard', icon: '🏠' },
+  { href: '/klussen', label: 'Klussen', icon: '🔧' },
   { href: '/klanten', label: 'Klanten', icon: '👥' },
   { href: '/facturen', label: 'Facturen', icon: '🧾' },
   { href: '/instellingen', label: 'Instellingen', icon: '⚙️' },
@@ -76,14 +77,14 @@ export default function Navigatie() {
         </button>
       </nav>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav — Dashboard + Klussen | + | Facturen + Instellingen */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1a2e4a] border-t border-[#223a5e] z-50 flex items-stretch">
-        {links.slice(0, 2).map((link) => (
+        {[links[0], links[1]].map((link) => (
           <Link
             key={link.href}
             href={link.href}
             className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs font-medium transition-colors ${
-              pathname === link.href
+              pathname === link.href || (link.href === '/klussen' && pathname.startsWith('/klussen'))
                 ? 'text-[#f97316]'
                 : 'text-blue-300'
             }`}
@@ -103,7 +104,7 @@ export default function Navigatie() {
           </div>
         </Link>
 
-        {links.slice(2).map((link) => (
+        {[links[3], links[4]].map((link) => (
           <Link
             key={link.href}
             href={link.href}

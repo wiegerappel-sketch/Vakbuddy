@@ -6,18 +6,20 @@ type WerkbonData = {
   aantal_mensen?: number | null
   materialen?: unknown[]
   geen_materiaal?: boolean
+  voorrijkosten_meenemen?: boolean | null
 }
 
 export const VELD_LABELS: Record<string, string> = {
-  klant_naam:    'Naam klant',
-  klant_adres:   'Adres',
-  klant_email:   'E-mailadres',
-  klant_type:    'Type klant (particulier / zakelijk)',
-  uren:          'Aantal uren',
-  aantal_mensen: 'Aantal mensen',
-  omschrijving:  'Omschrijving werk',
-  materialen:    'Materiaal (of "geen materiaal" tikken)',
-  datum:         'Datum van de klus',
+  klant_naam:          'Naam klant',
+  klant_adres:         'Adres',
+  klant_email:         'E-mailadres',
+  klant_type:          'Type klant (particulier / zakelijk)',
+  uren:                'Aantal uren',
+  aantal_mensen:       'Aantal mensen',
+  omschrijving:        'Omschrijving werk',
+  materialen:          'Materiaal (of "geen materiaal" tikken)',
+  voorrijkosten:       'Voorrijkosten (ja of nee)',
+  datum:               'Datum van de klus',
 }
 
 export function checkVeldenCompleet(
@@ -40,6 +42,9 @@ export function checkVeldenCompleet(
     if (!werkbon.omschrijving?.trim()) ontbrekend.push('omschrijving')
     if (!werkbon.geen_materiaal && (!werkbon.materialen || werkbon.materialen.length === 0)) {
       ontbrekend.push('materialen')
+    }
+    if (werkbon.voorrijkosten_meenemen === null || werkbon.voorrijkosten_meenemen === undefined) {
+      ontbrekend.push('voorrijkosten')
     }
   }
 
