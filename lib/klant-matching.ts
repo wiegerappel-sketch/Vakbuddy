@@ -77,24 +77,25 @@ export function matchKlantInLijst(
 
   const plaatsNorm = gezoechtePlaats ? normaliseerNaam(gezoechtePlaats) : null
 
-  const kandidaten: MatchKandidaat[] = klanten
+  type KandidaatIntern = MatchKandidaat & { plaatsMatch: boolean }
+
+  const kandidaten: KandidaatIntern[] = klanten
     .map((klant) => {
       const naamScore = similarity(gezochteNaam, klant.naam)
-      const plaatsMatch = plaatsNorm && klant.plaats && normaliseerNaam(klant.plaats) === plaatsNorm
+      const plaatsMatch = !!(plaatsNorm && klant.plaats && normaliseerNaam(klant.plaats) === plaatsNorm)
       const methode: 'exact' | 'fuzzy' =
         normaliseerNaam(gezochteNaam) === normaliseerNaam(klant.naam) ? 'exact' : 'fuzzy'
 
-      // Kleine bonus als plaats overeenkomt
       const score = plaatsMatch ? Math.min(1.0, naamScore + 0.1) : naamScore
 
-      return { klant, score, methode, plaatsMatch: !!plaatsMatch, naamScore }
+      return { klant, score, methode, plaatsMatch }
     })
     .filter((k) => k.score >= DREMPEL_LAAG)
-    .sort((a, b) => b.score - a.score) as (MatchKandidaat & { plaatsMatch: boolean; naamScore: number })[]
+    .sort((a, b) => b.score - a.score)
 
   if (kandidaten.length === 0) return { type: 'geen' }
 
-  const beste = kandidaten[0] as MatchKandidaat & { plaatsMatch: boolean; naamScore: number }
+  const beste = kandidaten[0]
 
   // Exacte naam-match gevonden
   if (beste.methode === 'exact') {
@@ -111,7 +112,7 @@ export function matchKlantInLijst(
 
   // Duidelijke fuzzy match zonder ambiguïteit
   if (beste.score >= DREMPEL_HOOG) {
-    const tweede = kandidaten[1] as (MatchKandidaat & { naamScore: number }) | undefined
+    const tweede = kandidaten[1]
     if (!tweede || beste.score - tweede.score > 0.15) {
       return { type: 'fuzzy', match: beste }
     }
@@ -123,11 +124,7 @@ export function matchKlantInLijst(
     return { type: 'meerdere', kandidaten: vergelijkbaar.slice(0, 5) }
   }
 
-  if (kandidaten.length >= 1) {
-    return { type: 'fuzzy', match: beste }
-  }
-
-  return { type: 'geen' }
+  return { type: 'fuzzy', match: beste }
 }
 
 // ─── Supabase-wrapper ─────────────────────────────────────────────────────────
