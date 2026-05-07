@@ -61,7 +61,7 @@ Alleen fysieke materialen, prijzen excl. BTW. Geef ALLEEN geldige JSON.`,
 
 export async function POST(request: NextRequest) {
   try {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const anthropic = new Anthropic()
     const { batch_id } = await request.json()
     if (!batch_id) return NextResponse.json({ fout: 'Geen batch_id.' }, { status: 400 })
 

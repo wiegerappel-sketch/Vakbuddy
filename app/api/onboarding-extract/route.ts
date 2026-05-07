@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 
 export async function POST(request: NextRequest) {
   try {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const anthropic = new Anthropic()
     const { transcriptie } = await request.json()
     if (!transcriptie) return NextResponse.json({ fout: 'Geen transcriptie.' }, { status: 400 })
 

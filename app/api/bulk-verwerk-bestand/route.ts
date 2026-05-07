@@ -20,7 +20,7 @@ type UitleesResultaat = {
 
 export async function POST(request: NextRequest) {
   try {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const anthropic = new Anthropic()
     const { bestand_id } = await request.json()
     if (!bestand_id) return NextResponse.json({ fout: 'Geen bestand_id.' }, { status: 400 })
 

@@ -34,7 +34,7 @@ function flattenWerkbon(raw: Record<string, unknown>) {
 
 export async function POST(request: NextRequest) {
   try {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const anthropic = new Anthropic()
     const { transcriptie, klus_id } = await request.json()
     if (!transcriptie) return NextResponse.json({ fout: 'Geen transcriptie meegestuurd.' }, { status: 400 })
 
