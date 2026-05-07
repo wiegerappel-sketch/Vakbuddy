@@ -21,9 +21,12 @@ export default function NieuweKlusPage() {
 
       if (!bedrijf) { router.push('/onboarding'); return }
 
+      const vandaag = new Date().toISOString().split('T')[0]
+      const alleVelden = ['klant_naam', 'klant_adres', 'klant_email', 'klant_type', 'uren', 'aantal_mensen', 'omschrijving', 'materialen', 'voorrijkosten']
+
       const { data: klus, error } = await supabase
         .from('klussen')
-        .insert({ bedrijf_id: bedrijf.id, status: 'concept' })
+        .insert({ bedrijf_id: bedrijf.id, status: 'concept', datum: vandaag, ontbrekende_velden: alleVelden })
         .select('id')
         .single()
 

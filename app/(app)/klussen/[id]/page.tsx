@@ -108,7 +108,7 @@ export default function KlusPage() {
     }
     setLaden(false)
     // Auto-start doorklik als klus al concept is (bv. via dashboard "Afmaken")
-    if (data?.status === 'concept' && data?.ontbrekende_velden?.length > 0) {
+    if (data?.status === 'concept' && data?.ontbrekende_velden?.length > 0 && data?.werkbon_json) {
       setDoorklikRij(data.ontbrekende_velden as string[])
     }
   }
@@ -370,7 +370,27 @@ export default function KlusPage() {
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Klus</h1>
       {klant && <p className="text-gray-500 text-sm mb-6">Klant: {klant.naam}</p>}
 
-      {!klus.transcriptie && <AudioOpnemer onKlaar={handleTranscriberen} bezig={transcriberen} />}
+      {!klus.transcriptie && (
+        <>
+          <div className="bg-[#1a2e4a] rounded-xl p-4 mb-4">
+            <p className="text-sm font-semibold text-white mb-2">Vergeet dit niet te benoemen:</p>
+            <ul className="flex flex-col gap-1">
+              {[
+                'Naam en adres van de klant',
+                'Wat heb je gedaan?',
+                'Hoeveel uur heb je gewerkt?',
+                'Welke materialen heb je gebruikt?',
+                'Ben je voorgereden?',
+              ].map((item) => (
+                <li key={item} className="text-sm text-blue-200 flex items-center gap-2">
+                  <span className="text-[#f97316]">•</span> {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <AudioOpnemer onKlaar={handleTranscriberen} bezig={transcriberen} />
+        </>
+      )}
       {transcriberen && <div className="mt-6 text-[#f97316] text-sm animate-pulse">Spraak wordt omgezet naar tekst...</div>}
       {fout && <p className="text-red-500 text-sm mt-4">{fout}</p>}
 
