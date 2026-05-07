@@ -10,6 +10,7 @@ type Klus = {
   status: string
   klanten: { naam: string } | null
   werkbon_json: { omschrijving: string } | null
+  ontbrekende_velden: string[] | null
 }
 
 type Stats = {
@@ -20,6 +21,7 @@ type Stats = {
 
 export default function DashboardPage() {
   const [klussen, setKlussen] = useState<Klus[]>([])
+  const [concepten, setConcepten] = useState<Klus[]>([])
   const [stats, setStats] = useState<Stats>({ dezeMaxand: 0, openstaand: 0, totaalKlussen: 0 })
   const [laden, setLaden] = useState(true)
 
@@ -36,10 +38,10 @@ export default function DashboardPage() {
       .from('bedrijven').select('id').eq('user_id', user.id).maybeSingle()
     if (!bedrijf) { setLaden(false); return }
 
-    const [klussenResult, facturenResult] = await Promise.all([
+    const [klussenResult, facturenResult, conceptenResult] = await Promise.all([
       supabase
         .from('klussen')
-        .select('id, datum, status, werkbon_json, klanten(naam)')
+        .select('id, datum, status, werkbon_json, klanten(naam), ontbrekende_velden')
         .eq('bedrijf_id', bedrijf.id)
         .order('aangemaakt_op', { ascending: false })
         .limit(10),
@@ -47,6 +49,13 @@ export default function DashboardPage() {
         .from('facturen')
         .select('totaal_incl_btw, betaald_op, aangemaakt_op')
         .eq('bedrijf_id', bedrijf.id),
+      supabase
+        .from('klussen')
+        .select('id, datum, status, werkbon_json, klanten(naam), ontbrekende_velden')
+        .eq('bedrijf_id', bedrijf.id)
+        .eq('status', 'concept')
+        .order('aangemaakt_op', { ascending: false })
+        .limit(5),
     ])
 
     const facturen = facturenResult.data ?? []
@@ -60,14 +69,19 @@ export default function DashboardPage() {
     const openstaand = facturen.filter((f) => !f.betaald_op).length
 
     setKlussen((klussenResult.data as unknown as Klus[]) ?? [])
+    setConcepten((conceptenResult.data as unknown as Klus[]) ?? [])
     setStats({ dezeMaxand, openstaand, totaalKlussen: klussenResult.data?.length ?? 0 })
     setLaden(false)
   }
 
   const statusLabel: Record<string, { tekst: string; kleur: string }> = {
-    nieuw: { tekst: 'Nieuw', kleur: 'bg-gray-100 text-gray-600' },
-    getranscribeerd: { tekst: 'Getranscribeerd', kleur: 'bg-yellow-100 text-yellow-700' },
-    werkbon_klaar: { tekst: 'Werkbon klaar', kleur: 'bg-orange-100 text-orange-700' },
+    nieuw:           { tekst: 'Nieuw',             kleur: 'bg-gray-100 text-gray-600' },
+    getranscribeerd: { tekst: 'Getranscribeerd',   kleur: 'bg-yellow-100 text-yellow-700' },
+    werkbon_klaar:   { tekst: 'Werkbon klaar',     kleur: 'bg-orange-100 text-orange-700' },
+    concept:         { tekst: 'Concept',           kleur: 'bg-yellow-100 text-yellow-700' },
+    compleet:        { tekst: 'Compleet',          kleur: 'bg-green-100 text-green-700' },
+    gefactureerd:    { tekst: 'Gefactureerd',      kleur: 'bg-blue-100 text-blue-700' },
+    betaald:         { tekst: 'Betaald',           kleur: 'bg-green-100 text-green-700' },
   }
 
   if (laden) return <div className="p-4 md:p-8 text-gray-500">Laden...</div>
@@ -87,6 +101,36 @@ export default function DashboardPage() {
           <p className="text-xl font-bold text-[#f97316]">{stats.openstaand}</p>
         </div>
       </div>
+
+      {/* Concept-banner */}
+      {concepten.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+          <p className="text-sm font-semibold text-yellow-800 mb-3">
+            ⚠️ {concepten.length} werkbon{concepten.length > 1 ? 'nen' : ''} {concepten.length > 1 ? 'wachten' : 'wacht'} op gegevens
+          </p>
+          <div className="flex flex-col gap-2">
+            {concepten.map((k) => (
+              <Link
+                key={k.id}
+                href={`/klussen/${k.id}`}
+                className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-yellow-200 hover:border-yellow-400 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {k.klanten?.naam ?? k.werkbon_json?.omschrijving ?? 'Onbekende klus'}
+                  </p>
+                  {k.ontbrekende_velden && k.ontbrekende_velden.length > 0 && (
+                    <p className="text-xs text-yellow-700">
+                      {k.ontbrekende_velden.length} veld{k.ontbrekende_velden.length > 1 ? 'en' : ''} ontbreken
+                    </p>
+                  )}
+                </div>
+                <span className="text-yellow-600 text-sm">Afmaken →</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Recente klussen</h2>
 

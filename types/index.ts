@@ -6,6 +6,8 @@ export type Klus = {
   transcriptie: string | null
   werkbon_json: unknown | null
   status: string
+  ontbrekende_velden: string[] | null
+  compleet_op: string | null
 }
 
 export type Klant = {
@@ -17,6 +19,7 @@ export type Klant = {
   plaats: string | null
   email: string | null
   telefoon: string | null
+  type_klant: string | null
   aangemaakt_via: string | null
   aangemaakt_op_klus_id: string | null
 }

@@ -14,6 +14,8 @@ function flattenWerkbon(raw: Record<string, unknown>) {
   return {
     omschrijving: (w?.omschrijving as { waarde?: string } | null)?.waarde ?? '',
     uren: (w?.uren as { waarde?: number } | null)?.waarde ?? 0,
+    aantal_mensen: (w?.aantal_mensen as { waarde?: number } | null)?.waarde ?? 1,
+    datum: (w?.datum as { waarde?: string } | null)?.waarde ?? null,
     materialen: ((w?.materialen as unknown[]) ?? []).map((m) => {
       const mat = m as Record<string, unknown>
       return {
@@ -113,6 +115,8 @@ export async function POST(request: NextRequest) {
 
           const adresSamengevoegd = [straatWaarde, huisnrWaarde].filter(Boolean).join(' ') || null
 
+          const typeKlantWaarde = (rawKlant?.type_klant as Record<string, unknown> | null)?.waarde as string | null ?? null
+
           const { data: nieuweKlant } = await supabase
             .from('klanten')
             .insert({
@@ -121,6 +125,7 @@ export async function POST(request: NextRequest) {
               adres: adresSamengevoegd,
               postcode: postcodeWaarde,
               plaats: plaatsWaarde,
+              type_klant: typeKlantWaarde,
               aangemaakt_via: 'voice',
               aangemaakt_op_klus_id: klus_id ?? null,
             })

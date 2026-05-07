@@ -11,17 +11,18 @@ type Klant = {
   id: string; bedrijf_id: string; naam: string
   adres: string | null; postcode: string | null; plaats: string | null
   email: string | null; telefoon: string | null
+  type_klant: string | null
   aangemaakt_via: string | null; aangemaakt_op_klus_id: string | null
 }
 
 // ─── Testdata ─────────────────────────────────────────────────────────────────
 
 const KLANTEN: Klant[] = [
-  { id: '1', bedrijf_id: 'b1', naam: 'Familie Jansen',   adres: 'Kerkstraat 1',  postcode: null, plaats: 'Den Bosch', email: null, telefoon: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
-  { id: '2', bedrijf_id: 'b1', naam: 'Henk Jansen',      adres: 'Lindenlaan 4',  postcode: null, plaats: 'Vught',     email: null, telefoon: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
-  { id: '3', bedrijf_id: 'b1', naam: 'Familie Pietersen', adres: 'Brink 12',     postcode: null, plaats: 'Den Bosch', email: null, telefoon: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
-  { id: '4', bedrijf_id: 'b1', naam: 'Installatiebedrijf De Vries BV', adres: null, postcode: null, plaats: 'Vught', email: null, telefoon: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
-  { id: '5', bedrijf_id: 'b1', naam: 'Mevrouw De Groot',  adres: 'Hoefstraat 7', postcode: null, plaats: 'Rosmalen', email: null, telefoon: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
+  { id: '1', bedrijf_id: 'b1', naam: 'Familie Jansen',   adres: 'Kerkstraat 1',  postcode: null, plaats: 'Den Bosch', email: null, telefoon: null, type_klant: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
+  { id: '2', bedrijf_id: 'b1', naam: 'Henk Jansen',      adres: 'Lindenlaan 4',  postcode: null, plaats: 'Vught',     email: null, telefoon: null, type_klant: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
+  { id: '3', bedrijf_id: 'b1', naam: 'Familie Pietersen', adres: 'Brink 12',     postcode: null, plaats: 'Den Bosch', email: null, telefoon: null, type_klant: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
+  { id: '4', bedrijf_id: 'b1', naam: 'Installatiebedrijf De Vries BV', adres: null, postcode: null, plaats: 'Vught', email: null, telefoon: null, type_klant: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
+  { id: '5', bedrijf_id: 'b1', naam: 'Mevrouw De Groot',  adres: 'Hoefstraat 7', postcode: null, plaats: 'Rosmalen', email: null, telefoon: null, type_klant: null, aangemaakt_via: null, aangemaakt_op_klus_id: null },
 ]
 
 // ─── Testcases ────────────────────────────────────────────────────────────────

@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Klant, Klus } from '@/types'
+import { checkVeldenCompleet, VELD_LABELS } from '@/lib/werkbon-compleetheid'
 
 type Materiaal = { naam: string; aantal: number; eenheid: string; prijs?: number; bibliotheek_id?: string | null; match_zekerheid?: string }
 
 type Werkbon = {
   omschrijving: string
   uren: number
+  aantal_mensen: number
   materialen: Materiaal[]
+  geen_materiaal: boolean
   voorrijkosten_meenemen: boolean
   twijfels: string[]
 }
@@ -116,8 +119,28 @@ export default function KlusPage() {
     const result = await response.json()
     if (!response.ok || result.fout) { setFout(result.fout ?? 'Werkbon maken mislukt.'); setWerkbonMaken(false); return }
     const supabase = createClient()
-    await supabase.from('klussen').update({ werkbon_json: result.werkbon, status: 'werkbon_klaar' }).eq('id', id)
-    setKlus((prev) => prev ? { ...prev, werkbon_json: result.werkbon, status: 'werkbon_klaar' } : prev)
+
+    // Bepaal effectieve klant voor compleetheidscheck (state is nog niet bijgewerkt)
+    const effectieveKlant: Klant | null =
+      (result.klant?.type === 'exact' || result.klant?.type === 'fuzzy' || result.klant?.type === 'nieuw')
+        ? (result.klant.klant as Klant)
+        : klant
+
+    const ontbrekend = checkVeldenCompleet(klus.datum, effectieveKlant, result.werkbon)
+    const nieuweStatus = ontbrekend.length === 0 ? 'compleet' : 'concept'
+
+    await supabase.from('klussen').update({
+      werkbon_json: result.werkbon,
+      status: nieuweStatus,
+      ontbrekende_velden: ontbrekend.length > 0 ? ontbrekend : null,
+      compleet_op: ontbrekend.length === 0 ? new Date().toISOString() : null,
+    }).eq('id', id)
+    setKlus((prev) => prev ? {
+      ...prev,
+      werkbon_json: result.werkbon,
+      status: nieuweStatus,
+      ontbrekende_velden: ontbrekend.length > 0 ? ontbrekend : null,
+    } : prev)
 
     // Klantbevestiging tonen — zet klant alvast voor exact/fuzzy/nieuw
     if (result.klant) {
@@ -390,6 +413,20 @@ export default function KlusPage() {
                   Sla over
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Concept-banner: ontbrekende velden */}
+          {werkbon && !klantBevestiging && klus.ontbrekende_velden && klus.ontbrekende_velden.length > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+              <p className="text-sm font-semibold text-yellow-800 mb-2">
+                📋 Concept — {klus.ontbrekende_velden.length} veld{klus.ontbrekende_velden.length > 1 ? 'en' : ''} {klus.ontbrekende_velden.length > 1 ? 'ontbreken' : 'ontbreekt'} nog
+              </p>
+              <ul className="flex flex-col gap-1">
+                {klus.ontbrekende_velden.map((veld) => (
+                  <li key={veld} className="text-sm text-yellow-700">✗ {VELD_LABELS[veld] ?? veld}</li>
+                ))}
+              </ul>
             </div>
           )}
 
