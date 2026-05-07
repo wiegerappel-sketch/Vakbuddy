@@ -235,14 +235,41 @@ export default function KlusPage() {
                 <button
                   onClick={async () => {
                     const werkbonKopie = JSON.parse(JSON.stringify(werkbon)) as Werkbon
-                    vragen.forEach((v, i) => {
-                      const prijs = parseFloat(vraagAntwoorden[i] ?? '')
-                      if (!isNaN(prijs)) {
-                        const idx = werkbonKopie.materialen.findIndex((m) => m.naam === v.naam)
-                        if (idx >= 0) werkbonKopie.materialen[idx].prijs = prijs
-                      }
-                    })
                     const supabase = createClient()
+                    const { data: { user } } = await supabase.auth.getUser()
+                    const { data: bedrijf } = user
+                      ? await supabase.from('bedrijven').select('id').eq('user_id', user.id).maybeSingle()
+                      : { data: null }
+
+                    for (let i = 0; i < vragen.length; i++) {
+                      const v = vragen[i]
+                      const prijs = parseFloat(vraagAntwoorden[i] ?? '')
+                      if (isNaN(prijs)) continue
+
+                      // Werkbon bijwerken
+                      const idx = werkbonKopie.materialen.findIndex((m) => m.naam === v.naam)
+                      if (idx >= 0) werkbonKopie.materialen[idx].prijs = prijs
+
+                      // Automatisch opslaan in bibliotheek
+                      if (bedrijf) {
+                        const bestaand = bibliotheek.find((m) => m.naam.toLowerCase() === v.naam.toLowerCase())
+                        if (bestaand) {
+                          await supabase.from('materialen').update({
+                            prijs,
+                            laatste_inkoop_datum: new Date().toISOString().split('T')[0],
+                          }).eq('id', bestaand.id)
+                        } else {
+                          await supabase.from('materialen').insert({
+                            bedrijf_id: bedrijf.id,
+                            naam: v.naam,
+                            prijs,
+                            eenheid: v.eenheid ?? 'stuk',
+                            laatste_inkoop_datum: new Date().toISOString().split('T')[0],
+                          })
+                        }
+                      }
+                    }
+
                     await supabase.from('klussen').update({ werkbon_json: werkbonKopie }).eq('id', id)
                     setKlus((prev) => prev ? { ...prev, werkbon_json: werkbonKopie } : prev)
                     setVragen([])
