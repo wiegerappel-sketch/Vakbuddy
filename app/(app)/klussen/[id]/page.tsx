@@ -15,7 +15,16 @@ type Werkbon = {
   twijfels: string[]
 }
 
-type BibliotheekMateriaal = { id: string; naam: string; prijs: number; eenheid: string }
+type BibliotheekMateriaal = { id: string; naam: string; prijs: number; eenheid: string; laatste_inkoop_datum: string | null }
+
+function prijsDot(datum: string | null): { dot: string; tekst: string } {
+  if (!datum) return { dot: 'bg-gray-300', tekst: 'Geen inkoopdatum' }
+  const dagen = Math.floor((Date.now() - new Date(datum).getTime()) / 86400000)
+  if (dagen <= 28) return { dot: 'bg-green-500', tekst: 'Prijs actueel' }
+  if (dagen <= 84) return { dot: 'bg-yellow-400', tekst: `${Math.floor(dagen / 7)} weken geleden` }
+  if (dagen <= 180) return { dot: 'bg-orange-400', tekst: `${Math.floor(dagen / 30)} mnd geleden — checken?` }
+  return { dot: 'bg-red-500', tekst: 'Meer dan 6 mnd oud' }
+}
 
 export default function KlusPage() {
   const params = useParams()
@@ -335,21 +344,27 @@ export default function KlusPage() {
                         <div className="max-h-40 overflow-y-auto">
                           {bibliotheek
                             .filter((m) => m.naam.toLowerCase().includes(materiaalZoek.toLowerCase()))
-                            .map((m) => (
-                              <button
-                                key={m.id}
-                                type="button"
-                                onClick={() => {
-                                  setBewerkWerkbon({ ...bewerkWerkbon, materialen: [...bewerkWerkbon.materialen, { naam: m.naam, aantal: 1, eenheid: m.eenheid, prijs: m.prijs }] })
-                                  setZoekOpen(false)
-                                  setMateriaalZoek('')
-                                }}
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-orange-50 flex justify-between items-center"
-                              >
-                                <span>{m.naam}</span>
-                                <span className="text-gray-400 text-xs">€ {Number(m.prijs).toFixed(2).replace('.', ',')} / {m.eenheid}</span>
-                              </button>
-                            ))}
+                            .map((m) => {
+                              const leeftijd = prijsDot(m.laatste_inkoop_datum)
+                              return (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setBewerkWerkbon({ ...bewerkWerkbon, materialen: [...bewerkWerkbon.materialen, { naam: m.naam, aantal: 1, eenheid: m.eenheid, prijs: m.prijs }] })
+                                    setZoekOpen(false)
+                                    setMateriaalZoek('')
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-orange-50 flex justify-between items-center gap-2"
+                                >
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className={`w-2 h-2 rounded-full shrink-0 ${leeftijd.dot}`} title={leeftijd.tekst} />
+                                    <span className="truncate">{m.naam}</span>
+                                  </div>
+                                  <span className="text-gray-400 text-xs shrink-0">€ {Number(m.prijs).toFixed(2).replace('.', ',')} / {m.eenheid}</span>
+                                </button>
+                              )
+                            })}
                           {bibliotheek.filter((m) => m.naam.toLowerCase().includes(materiaalZoek.toLowerCase())).length === 0 && (
                             <p className="px-3 py-2 text-sm text-gray-400">Niet gevonden</p>
                           )}

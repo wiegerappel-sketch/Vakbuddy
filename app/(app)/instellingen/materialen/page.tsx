@@ -4,7 +4,16 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Categorie = { id: string; naam: string; default_marge_percentage: number }
-type Materiaal = { id: string; naam: string; prijs: number; eenheid: string; inkoopprijs: number | null; marge_percentage: number | null; categorie_id: string | null }
+type Materiaal = { id: string; naam: string; prijs: number; eenheid: string; inkoopprijs: number | null; marge_percentage: number | null; categorie_id: string | null; laatste_inkoop_datum: string | null }
+
+function prijsLeeftijd(datum: string | null): { kleur: string; dot: string; tekst: string | null } {
+  if (!datum) return { kleur: 'text-gray-400', dot: 'bg-gray-300', tekst: 'Geen inkoopdatum' }
+  const dagen = Math.floor((Date.now() - new Date(datum).getTime()) / 86400000)
+  if (dagen <= 28) return { kleur: 'text-green-600', dot: 'bg-green-500', tekst: null }
+  if (dagen <= 84) return { kleur: 'text-yellow-600', dot: 'bg-yellow-400', tekst: `${Math.floor(dagen / 7)} weken geleden` }
+  if (dagen <= 180) return { kleur: 'text-orange-500', dot: 'bg-orange-400', tekst: `${Math.floor(dagen / 30)} mnd geleden — checken?` }
+  return { kleur: 'text-red-500', dot: 'bg-red-500', tekst: `Meer dan 6 mnd oud` }
+}
 
 const DEFAULT_CATEGORIEEN = [
   { naam: 'Sanitair', default_marge_percentage: 40 },
@@ -116,6 +125,8 @@ export default function MaterialenPage() {
       inkoopprijs,
       marge_percentage: marge,
       prijs: verkoopprijs ?? parseFloat(matInkoopprijs) ?? 0,
+      // Datum bijwerken als inkoopprijs is ingevuld
+      ...(inkoopprijs != null ? { laatste_inkoop_datum: new Date().toISOString().split('T')[0] } : {}),
     }
 
     if (matBewerken) {
@@ -322,19 +333,25 @@ export default function MaterialenPage() {
               {gefilterd.map((m) => {
                 const cat = categorieen.find((c) => c.id === m.categorie_id)
                 const vp = berekenVerkoopprijs(m.inkoopprijs, m.marge_percentage) ?? m.prijs
+                const leeftijd = prijsLeeftijd(m.laatste_inkoop_datum)
                 return (
                   <div key={m.id} className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{m.naam}</p>
-                      <p className="text-xs text-gray-500">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900 text-sm">{m.naam}</p>
+                        <span title={leeftijd.tekst ?? 'Prijs actueel'} className={`w-2 h-2 rounded-full shrink-0 ${leeftijd.dot}`} />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
                         {m.inkoopprijs != null
-                          ? `Inkoop € ${Number(m.inkoopprijs).toFixed(2).replace('.', ',')} · marge ${m.marge_percentage ?? cat?.default_marge_percentage ?? '?'}% · verkoop € ${vp.toFixed(2).replace('.', ',')}`
-                          : `€ ${Number(m.prijs).toFixed(2).replace('.', ',')} / ${m.eenheid}`
-                        }
+                          ? `Inkoop € ${Number(m.inkoopprijs).toFixed(2).replace('.', ',')} · ${m.marge_percentage ?? cat?.default_marge_percentage ?? '?'}% → € ${vp.toFixed(2).replace('.', ',')} / ${m.eenheid}`
+                          : `€ ${Number(m.prijs).toFixed(2).replace('.', ',')} / ${m.eenheid}`}
                         {cat ? ` · ${cat.naam}` : ''}
                       </p>
+                      {leeftijd.tekst && (
+                        <p className={`text-xs mt-0.5 ${leeftijd.kleur}`}>{leeftijd.tekst}</p>
+                      )}
                     </div>
-                    <div className="flex gap-3 shrink-0 ml-2">
+                    <div className="flex gap-3 shrink-0 ml-3">
                       <button onClick={() => openBewerkMateriaal(m)} className="text-sm text-[#f97316] hover:underline">Bewerken</button>
                       <button onClick={() => handleMatVerwijderen(m.id)} className="text-sm text-red-400 hover:text-red-600">✕</button>
                     </div>
