@@ -27,24 +27,39 @@ export async function POST(request: NextRequest) {
     const { data: bedrijf } = await supabase.from('bedrijven').select('id').eq('user_id', user.id).single()
     if (!bedrijf) return NextResponse.json({ fout: 'Geen bedrijf gevonden.' }, { status: 400 })
 
-    const { pdf, factuurnummer, totaalExclBtw, btwBedrag, totaalInclBtw } = await maakFactuurPdf(klus_id, supabase)
+    // Hergebruik bestaande factuur als die er al is
+    const { data: bestaandeFactuur } = await supabase
+      .from('facturen').select('id, factuurnummer').eq('klus_id', klus_id).limit(1).maybeSingle()
 
-    const { data: nieuweFactuur, error: insertFout } = await supabase.from('facturen').insert({
-      klus_id,
-      bedrijf_id: bedrijf.id,
-      factuurnummer,
-      datum: new Date().toISOString().split('T')[0],
-      totaal_excl_btw: totaalExclBtw,
-      btw_bedrag: btwBedrag,
-      totaal_incl_btw: totaalInclBtw,
-    }).select('id').single()
-    if (insertFout) return NextResponse.json({ fout: `Factuur opslaan mislukt: ${insertFout.message}` }, { status: 500 })
+    let factuurId: string
+    let factuurnummer: string
+
+    if (bestaandeFactuur) {
+      factuurId = bestaandeFactuur.id
+      factuurnummer = bestaandeFactuur.factuurnummer
+    } else {
+      const result = await maakFactuurPdf(klus_id, supabase)
+      factuurnummer = result.factuurnummer
+      const { data: nieuweFactuur, error: insertFout } = await supabase.from('facturen').insert({
+        klus_id,
+        bedrijf_id: bedrijf.id,
+        factuurnummer,
+        datum: new Date().toISOString().split('T')[0],
+        totaal_excl_btw: result.totaalExclBtw,
+        btw_bedrag: result.btwBedrag,
+        totaal_incl_btw: result.totaalInclBtw,
+      }).select('id').single()
+      if (insertFout) return NextResponse.json({ fout: `Factuur opslaan mislukt: ${insertFout.message}` }, { status: 500 })
+      factuurId = nieuweFactuur!.id
+    }
+
+    const { pdf } = await maakFactuurPdf(klus_id, supabase, factuurnummer)
 
     return new NextResponse(pdf as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="factuur-${factuurnummer}.pdf"`,
-        'X-Factuur-Id': nieuweFactuur?.id ?? '',
+        'X-Factuur-Id': factuurId,
       },
     })
   } catch (error) {
