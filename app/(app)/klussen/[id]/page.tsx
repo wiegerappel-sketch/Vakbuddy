@@ -46,6 +46,12 @@ export default function KlusPage() {
   const [zoekOpen, setZoekOpen] = useState(false)
   const [vragen, setVragen] = useState<Materiaal[]>([])
   const [vraagAntwoorden, setVraagAntwoorden] = useState<Record<number, string>>({})
+  const [klantBevestiging, setKlantBevestiging] = useState<{
+    type: string
+    klant?: Klant
+    kandidaten?: Klant[]
+  } | null>(null)
+  const [gekozenKandidaatId, setGekozenKandidaatId] = useState<string>('')
 
   useEffect(() => {
     laadKlus()
@@ -113,9 +119,12 @@ export default function KlusPage() {
     await supabase.from('klussen').update({ werkbon_json: result.werkbon, status: 'werkbon_klaar' }).eq('id', id)
     setKlus((prev) => prev ? { ...prev, werkbon_json: result.werkbon, status: 'werkbon_klaar' } : prev)
 
-    // Klant bijwerken vanuit extractie-resultaat
-    if (result.klant?.type === 'exact' || result.klant?.type === 'fuzzy' || result.klant?.type === 'nieuw') {
-      setKlant(result.klant.klant)
+    // Klantbevestiging tonen — zet klant alvast voor exact/fuzzy/nieuw
+    if (result.klant) {
+      setKlantBevestiging(result.klant)
+      if (result.klant.type === 'exact' || result.klant.type === 'fuzzy' || result.klant.type === 'nieuw') {
+        setKlant(result.klant.klant)
+      }
     }
 
     // Materialen zonder prijs verzamelen voor vragen (max 2)
@@ -127,6 +136,18 @@ export default function KlusPage() {
       setVraagAntwoorden({})
     }
     setWerkbonMaken(false)
+  }
+
+  async function bevestigKlant() {
+    if (!klantBevestiging) return
+    if (klantBevestiging.type === 'meerdere' && gekozenKandidaatId && gekozenKandidaatId !== 'nieuw') {
+      const supabase = createClient()
+      await supabase.from('klussen').update({ klant_id: gekozenKandidaatId }).eq('id', id)
+      const gevonden = klantBevestiging.kandidaten?.find((k) => k.id === gekozenKandidaatId)
+      if (gevonden) setKlant(gevonden)
+    }
+    setKlantBevestiging(null)
+    setGekozenKandidaatId('')
   }
 
   async function handleWerkbonOpslaan() {
@@ -208,6 +229,85 @@ export default function KlusPage() {
             <button onClick={handleWerkbonMaken} disabled={werkbonMaken} className="bg-[#f97316] text-white rounded-lg py-3 text-sm font-semibold hover:bg-orange-500 disabled:opacity-50">
               {werkbonMaken ? 'Werkbon wordt gemaakt...' : 'Maak werkbon →'}
             </button>
+          )}
+
+          {/* Klantbevestiging */}
+          {klantBevestiging && (
+            <div className="bg-[#1a2e4a] rounded-xl p-4 flex flex-col gap-4">
+              <p className="text-white font-semibold text-sm">Klant controleren</p>
+
+              {(klantBevestiging.type === 'exact' || klantBevestiging.type === 'fuzzy' || klantBevestiging.type === 'nieuw') && klantBevestiging.klant && (
+                <div className="bg-white/10 rounded-lg p-3 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      klantBevestiging.type === 'nieuw' ? 'bg-blue-500 text-white' :
+                      klantBevestiging.type === 'fuzzy' ? 'bg-yellow-400 text-gray-900' :
+                      'bg-green-500 text-white'
+                    }`}>
+                      {klantBevestiging.type === 'nieuw' ? '⊕ Nieuwe klant' :
+                       klantBevestiging.type === 'fuzzy' ? '~ Waarschijnlijk' :
+                       '✓ Gevonden'}
+                    </span>
+                    <span className="text-white font-medium text-sm">{klantBevestiging.klant.naam}</span>
+                  </div>
+                  {(klantBevestiging.klant.adres || klantBevestiging.klant.plaats) && (
+                    <p className="text-blue-200 text-sm">
+                      📍 {[klantBevestiging.klant.adres, klantBevestiging.klant.postcode, klantBevestiging.klant.plaats].filter(Boolean).join(' ')}
+                    </p>
+                  )}
+                  {!klantBevestiging.klant.email && (
+                    <p className="text-yellow-300 text-xs">⚠️ E-mailadres ontbreekt — factuur mailen gaat later niet werken</p>
+                  )}
+                </div>
+              )}
+
+              {klantBevestiging.type === 'meerdere' && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-blue-200 text-sm">Welke klant bedoel je?</p>
+                  {klantBevestiging.kandidaten?.map((k) => (
+                    <label key={k.id} className="flex items-start gap-3 bg-white/10 rounded-lg p-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="klant-keuze"
+                        value={k.id}
+                        checked={gekozenKandidaatId === k.id}
+                        onChange={() => setGekozenKandidaatId(k.id)}
+                        className="mt-0.5 accent-orange-500"
+                      />
+                      <div>
+                        <p className="text-white text-sm font-medium">{k.naam}</p>
+                        {(k.adres || k.plaats) && (
+                          <p className="text-blue-200 text-xs">{[k.adres, k.plaats].filter(Boolean).join(', ')}</p>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                  <label className="flex items-start gap-3 bg-white/10 rounded-lg p-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="klant-keuze"
+                      value="nieuw"
+                      checked={gekozenKandidaatId === 'nieuw'}
+                      onChange={() => setGekozenKandidaatId('nieuw')}
+                      className="mt-0.5 accent-orange-500"
+                    />
+                    <p className="text-white text-sm">Geen van deze — nieuwe klant aanmaken</p>
+                  </label>
+                </div>
+              )}
+
+              {klantBevestiging.type === 'naam_onbekend' && (
+                <p className="text-blue-200 text-sm">Klantnaam niet herkend — klant kun je later koppelen.</p>
+              )}
+
+              <button
+                onClick={bevestigKlant}
+                disabled={klantBevestiging.type === 'meerdere' && !gekozenKandidaatId}
+                className="bg-[#f97316] text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-orange-500 disabled:opacity-50"
+              >
+                OK, ga verder →
+              </button>
+            </div>
           )}
 
           {/* Vragen over onbekende materialen */}
