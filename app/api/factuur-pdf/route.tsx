@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       btw_bedrag: btwBedrag,
       totaal_incl_btw: totaalInclBtw,
     })
-    if (insertFout) console.error('Factuur insert fout:', insertFout.message)
+    if (insertFout) return NextResponse.json({ fout: `Factuur opslaan mislukt: ${insertFout.message}` }, { status: 500 })
 
     return new NextResponse(pdf as unknown as BodyInit, {
       headers: {
