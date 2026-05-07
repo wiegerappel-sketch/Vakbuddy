@@ -58,7 +58,7 @@ export default function KlussenPage() {
 
     const { data } = await supabase
       .from('klussen')
-      .select('id, datum, status, werkbon_json, klanten(naam), ontbrekende_velden')
+      .select('id, datum, status, werkbon_json, klanten!klant_id(naam), ontbrekende_velden')
       .eq('bedrijf_id', bedrijf.id)
       .order('datum', { ascending: false })
 

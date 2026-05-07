@@ -39,7 +39,7 @@ export default function FacturenPage() {
 
     const { data } = await supabase
       .from('facturen')
-      .select('id, klus_id, factuurnummer, datum, totaal_incl_btw, verzonden_op, betaald_op, klussen(klanten(naam))')
+      .select('id, klus_id, factuurnummer, datum, totaal_incl_btw, verzonden_op, betaald_op, klussen!klus_id(klanten!klant_id(naam))')
       .eq('bedrijf_id', bedrijf.id)
       .order('datum', { ascending: false })
 

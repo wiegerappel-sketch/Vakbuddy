@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   for (const bedrijf of bedrijven) {
     const { data: rawConcepten } = await supabase
       .from('klussen')
-      .select('id, ontbrekende_velden, klanten(naam), werkbon_json')
+      .select('id, ontbrekende_velden, klanten!klant_id(naam), werkbon_json')
       .eq('bedrijf_id', bedrijf.id)
       .eq('status', 'concept')
       .order('datum', { ascending: false })
