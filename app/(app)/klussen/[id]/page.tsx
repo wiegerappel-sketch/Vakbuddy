@@ -55,6 +55,14 @@ export default function KlusPage() {
     kandidaten?: Klant[]
   } | null>(null)
   const [gekozenKandidaatId, setGekozenKandidaatId] = useState<string>('')
+  // Doorklik-menu
+  const [doorklikRij, setDoorklikRij] = useState<string[]>([])
+  const [dlEmail, setDlEmail] = useState('')
+  const [dlAdres, setDlAdres] = useState({ straat: '', huisnummer: '', postcode: '', plaats: '' })
+  const [dlNaam, setDlNaam] = useState('')
+  const [dlUrenAndere, setDlUrenAndere] = useState('')
+  const [dlOmschrijving, setDlOmschrijving] = useState('')
+  const [dlDatumAndere, setDlDatumAndere] = useState('')
 
   useEffect(() => {
     laadKlus()
@@ -90,6 +98,10 @@ export default function KlusPage() {
       }
     }
     setLaden(false)
+    // Auto-start doorklik als klus al concept is (bv. via dashboard "Afmaken")
+    if (data?.status === 'concept' && data?.ontbrekende_velden?.length > 0) {
+      setDoorklikRij(data.ontbrekende_velden as string[])
+    }
   }
 
   async function handleTranscriberen(audioBlob: Blob) {
@@ -163,14 +175,100 @@ export default function KlusPage() {
 
   async function bevestigKlant() {
     if (!klantBevestiging) return
+    let effectieveKlant = klant
     if (klantBevestiging.type === 'meerdere' && gekozenKandidaatId && gekozenKandidaatId !== 'nieuw') {
       const supabase = createClient()
       await supabase.from('klussen').update({ klant_id: gekozenKandidaatId }).eq('id', id)
       const gevonden = klantBevestiging.kandidaten?.find((k) => k.id === gekozenKandidaatId)
-      if (gevonden) setKlant(gevonden)
+      if (gevonden) { setKlant(gevonden); effectieveKlant = gevonden }
     }
+    // Re-check met bevestigde klant — update ontbrekende_velden
+    const werkbonData = klus?.werkbon_json as { omschrijving?: string; uren?: number; aantal_mensen?: number; materialen?: unknown[]; geen_materiaal?: boolean } | null
+    const ontbrekend = checkVeldenCompleet(klus?.datum, effectieveKlant, werkbonData)
+    const nieuweStatus = ontbrekend.length === 0 ? 'compleet' : 'concept'
+    const supabase2 = createClient()
+    await supabase2.from('klussen').update({
+      ontbrekende_velden: ontbrekend.length > 0 ? ontbrekend : null,
+      status: nieuweStatus,
+      compleet_op: ontbrekend.length === 0 ? new Date().toISOString() : null,
+    }).eq('id', id)
+    setKlus((prev) => prev ? { ...prev, ontbrekende_velden: ontbrekend.length > 0 ? ontbrekend : null, status: nieuweStatus } : prev)
+    if (ontbrekend.length > 0) setDoorklikRij(ontbrekend)
     setKlantBevestiging(null)
     setGekozenKandidaatId('')
+  }
+
+  function startDoorklik() {
+    if (klus?.ontbrekende_velden && klus.ontbrekende_velden.length > 0) {
+      setDoorklikRij([...klus.ontbrekende_velden])
+    }
+  }
+
+  function slaVeldOver() {
+    setDoorklikRij((prev) => prev.slice(1))
+  }
+
+  async function slaAntwoordOp(veld: string, waarde: unknown) {
+    const supabase = createClient()
+    const wb = JSON.parse(JSON.stringify(klus?.werkbon_json ?? {})) as Werkbon
+
+    if (veld === 'klant_email' && klant) {
+      await supabase.from('klanten').update({ email: waarde as string }).eq('id', klant.id)
+      setKlant((prev) => prev ? { ...prev, email: waarde as string } : prev)
+    } else if (veld === 'klant_adres' && klant) {
+      const a = waarde as { straat: string; huisnummer: string; postcode: string; plaats: string }
+      const adresStr = [a.straat, a.huisnummer].filter(Boolean).join(' ') || null
+      await supabase.from('klanten').update({ adres: adresStr, postcode: a.postcode || null, plaats: a.plaats || null }).eq('id', klant.id)
+      setKlant((prev) => prev ? { ...prev, adres: adresStr, postcode: a.postcode || null, plaats: a.plaats || null } : prev)
+    } else if (veld === 'klant_type' && klant) {
+      await supabase.from('klanten').update({ type_klant: waarde as string }).eq('id', klant.id)
+      setKlant((prev) => prev ? { ...prev, type_klant: waarde as string } : prev)
+    } else if (veld === 'uren') {
+      wb.uren = waarde as number
+      await supabase.from('klussen').update({ werkbon_json: wb }).eq('id', id)
+      setKlus((prev) => prev ? { ...prev, werkbon_json: wb } : prev)
+    } else if (veld === 'aantal_mensen') {
+      wb.aantal_mensen = waarde as number
+      await supabase.from('klussen').update({ werkbon_json: wb }).eq('id', id)
+      setKlus((prev) => prev ? { ...prev, werkbon_json: wb } : prev)
+    } else if (veld === 'omschrijving') {
+      wb.omschrijving = waarde as string
+      await supabase.from('klussen').update({ werkbon_json: wb }).eq('id', id)
+      setKlus((prev) => prev ? { ...prev, werkbon_json: wb } : prev)
+    } else if (veld === 'materialen' && waarde === 'geen') {
+      wb.geen_materiaal = true; wb.materialen = []
+      await supabase.from('klussen').update({ werkbon_json: wb }).eq('id', id)
+      setKlus((prev) => prev ? { ...prev, werkbon_json: wb } : prev)
+    } else if (veld === 'datum') {
+      await supabase.from('klussen').update({ datum: waarde as string }).eq('id', id)
+      setKlus((prev) => prev ? { ...prev, datum: waarde as string } : prev)
+    }
+
+    const nieuwOntbrekend = (klus?.ontbrekende_velden ?? []).filter((v) => v !== veld)
+    const nieuweStatus = nieuwOntbrekend.length === 0 ? 'compleet' : 'concept'
+    await supabase.from('klussen').update({
+      ontbrekende_velden: nieuwOntbrekend.length > 0 ? nieuwOntbrekend : null,
+      status: nieuweStatus,
+      compleet_op: nieuwOntbrekend.length === 0 ? new Date().toISOString() : null,
+    }).eq('id', id)
+    setKlus((prev) => prev ? { ...prev, ontbrekende_velden: nieuwOntbrekend.length > 0 ? nieuwOntbrekend : null, status: nieuweStatus } : prev)
+    setDoorklikRij((prev) => prev.slice(1))
+  }
+
+  async function maakKlantAan(naam: string) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: bedrijf } = await supabase.from('bedrijven').select('id').eq('user_id', user.id).maybeSingle()
+    if (!bedrijf) return
+    const { data: nieuweKlant } = await supabase.from('klanten').insert({
+      bedrijf_id: bedrijf.id, naam, aangemaakt_via: 'handmatig', aangemaakt_op_klus_id: id,
+    }).select('*').single()
+    if (nieuweKlant) {
+      await supabase.from('klussen').update({ klant_id: nieuweKlant.id }).eq('id', id)
+      setKlant(nieuweKlant as Klant)
+      await slaAntwoordOp('klant_naam', naam)
+    }
   }
 
   async function handleWerkbonOpslaan() {
@@ -416,17 +514,200 @@ export default function KlusPage() {
             </div>
           )}
 
-          {/* Concept-banner: ontbrekende velden */}
-          {werkbon && !klantBevestiging && klus.ontbrekende_velden && klus.ontbrekende_velden.length > 0 && (
+          {/* Concept-banner: ontbrekende velden — alleen tonen als doorklik niet actief */}
+          {werkbon && !klantBevestiging && doorklikRij.length === 0 && klus.ontbrekende_velden && klus.ontbrekende_velden.length > 0 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-yellow-800 mb-2">
                 📋 Concept — {klus.ontbrekende_velden.length} veld{klus.ontbrekende_velden.length > 1 ? 'en' : ''} {klus.ontbrekende_velden.length > 1 ? 'ontbreken' : 'ontbreekt'} nog
               </p>
-              <ul className="flex flex-col gap-1">
+              <ul className="flex flex-col gap-1 mb-3">
                 {klus.ontbrekende_velden.map((veld) => (
                   <li key={veld} className="text-sm text-yellow-700">✗ {VELD_LABELS[veld] ?? veld}</li>
                 ))}
               </ul>
+              <button onClick={startDoorklik} className="text-sm font-semibold text-[#f97316] hover:underline">
+                Nu afmaken →
+              </button>
+            </div>
+          )}
+
+          {/* Doorklik-menu: één veld per keer */}
+          {doorklikRij.length > 0 && !klantBevestiging && (
+            <div className="bg-[#1a2e4a] rounded-xl p-4 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <p className="text-white font-semibold text-sm">Aanvullen</p>
+                <p className="text-blue-300 text-xs">{doorklikRij.length} veld{doorklikRij.length > 1 ? 'en' : ''} nog</p>
+              </div>
+
+              {doorklikRij[0] === 'klant_naam' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Bij welke klant was deze klus?</p>
+                  <input type="text" value={dlNaam} onChange={(e) => setDlNaam(e.target.value)} placeholder="Naam klant"
+                    className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                  <div className="flex gap-3">
+                    <button onClick={() => dlNaam.trim() && maakKlantAan(dlNaam.trim())} disabled={!dlNaam.trim()}
+                      className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                      Opslaan
+                    </button>
+                    <button onClick={slaVeldOver} className="text-blue-300 text-sm">Later invullen</button>
+                  </div>
+                </div>
+              )}
+
+              {doorklikRij[0] === 'klant_email' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Mailadres van {klant?.naam ?? 'de klant'} voor de factuur?</p>
+                  <input type="email" value={dlEmail} onChange={(e) => setDlEmail(e.target.value)} placeholder="naam@voorbeeld.nl"
+                    className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                  <div className="flex gap-3">
+                    <button onClick={() => dlEmail.trim() && slaAntwoordOp('klant_email', dlEmail.trim())} disabled={!dlEmail.trim()}
+                      className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                      Opslaan
+                    </button>
+                    <button onClick={slaVeldOver} className="text-blue-300 text-sm">Later invullen</button>
+                  </div>
+                </div>
+              )}
+
+              {doorklikRij[0] === 'klant_adres' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Adres van {klant?.naam ?? 'de klant'}?</p>
+                  <div className="flex gap-2">
+                    <input type="text" value={dlAdres.straat} onChange={(e) => setDlAdres({ ...dlAdres, straat: e.target.value })} placeholder="Straat"
+                      className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                    <input type="text" value={dlAdres.huisnummer} onChange={(e) => setDlAdres({ ...dlAdres, huisnummer: e.target.value })} placeholder="Nr."
+                      className="w-20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                  </div>
+                  <div className="flex gap-2">
+                    <input type="text" value={dlAdres.postcode} onChange={(e) => setDlAdres({ ...dlAdres, postcode: e.target.value })} placeholder="Postcode"
+                      className="w-28 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                    <input type="text" value={dlAdres.plaats} onChange={(e) => setDlAdres({ ...dlAdres, plaats: e.target.value })} placeholder="Plaats"
+                      className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => (dlAdres.straat || dlAdres.plaats) && slaAntwoordOp('klant_adres', dlAdres)}
+                      disabled={!dlAdres.straat.trim() && !dlAdres.plaats.trim()}
+                      className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                      Opslaan
+                    </button>
+                    <button onClick={slaVeldOver} className="text-blue-300 text-sm">Later invullen</button>
+                  </div>
+                </div>
+              )}
+
+              {doorklikRij[0] === 'klant_type' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Particulier of zakelijk?</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => slaAntwoordOp('klant_type', 'particulier')}
+                      className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
+                      Particulier
+                    </button>
+                    <button onClick={() => slaAntwoordOp('klant_type', 'zakelijk')}
+                      className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
+                      Zakelijk
+                    </button>
+                  </div>
+                  <button onClick={slaVeldOver} className="text-blue-300 text-sm text-left">Later invullen</button>
+                </div>
+              )}
+
+              {doorklikRij[0] === 'uren' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Hoeveel uur heb je gewerkt?</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[1, 1.5, 2, 2.5, 3, 4].map((u) => (
+                      <button key={u} onClick={() => slaAntwoordOp('uren', u)}
+                        className="bg-white/10 hover:bg-white/20 text-white rounded-lg px-5 py-2.5 text-sm font-medium">
+                        {u}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input type="number" value={dlUrenAndere} onChange={(e) => setDlUrenAndere(e.target.value)}
+                      placeholder="Anders..." min="0" step="0.5"
+                      className="w-32 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                    {dlUrenAndere && (
+                      <button onClick={() => slaAntwoordOp('uren', parseFloat(dlUrenAndere))}
+                        className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-semibold">
+                        Opslaan
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={slaVeldOver} className="text-blue-300 text-sm text-left">Later invullen</button>
+                </div>
+              )}
+
+              {doorklikRij[0] === 'aantal_mensen' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Met hoeveel man heb je gewerkt?</p>
+                  <div className="flex gap-2">
+                    {([['Alleen', 1], ['2 man', 2], ['3 man', 3], ['4+', 4]] as [string, number][]).map(([label, val]) => (
+                      <button key={val} onClick={() => slaAntwoordOp('aantal_mensen', val)}
+                        className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={slaVeldOver} className="text-blue-300 text-sm text-left">Later invullen</button>
+                </div>
+              )}
+
+              {doorklikRij[0] === 'omschrijving' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Wat heb je gedaan? Korte omschrijving.</p>
+                  <textarea value={dlOmschrijving} onChange={(e) => setDlOmschrijving(e.target.value)}
+                    placeholder="bv. CV-ketel nagekeken, filter schoongemaakt" rows={2}
+                    className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316] resize-none" />
+                  <div className="flex gap-3">
+                    <button onClick={() => dlOmschrijving.trim() && slaAntwoordOp('omschrijving', dlOmschrijving.trim())}
+                      disabled={!dlOmschrijving.trim()}
+                      className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                      Opslaan
+                    </button>
+                    <button onClick={slaVeldOver} className="text-blue-300 text-sm">Later invullen</button>
+                  </div>
+                </div>
+              )}
+
+              {doorklikRij[0] === 'materialen' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Heb je materiaal gebruikt?</p>
+                  <button onClick={() => slaAntwoordOp('materialen', 'geen')}
+                    className="bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
+                    Geen materiaal gebruikt
+                  </button>
+                  <button onClick={slaVeldOver}
+                    className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 rounded-lg py-3 text-sm font-medium">
+                    Materialen al ingevuld / later toevoegen
+                  </button>
+                </div>
+              )}
+
+              {doorklikRij[0] === 'datum' && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-blue-200 text-sm">Wanneer was deze klus?</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => slaAntwoordOp('datum', new Date().toISOString().split('T')[0])}
+                      className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
+                      Vandaag
+                    </button>
+                    <button onClick={() => { const g = new Date(); g.setDate(g.getDate() - 1); slaAntwoordOp('datum', g.toISOString().split('T')[0]) }}
+                      className="flex-1 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 text-sm font-medium">
+                      Gisteren
+                    </button>
+                  </div>
+                  <input type="date" value={dlDatumAndere} onChange={(e) => setDlDatumAndere(e.target.value)}
+                    className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
+                  {dlDatumAndere && (
+                    <button onClick={() => slaAntwoordOp('datum', dlDatumAndere)}
+                      className="bg-[#f97316] text-white rounded-lg py-2 text-sm font-semibold">
+                      Opslaan
+                    </button>
+                  )}
+                  <button onClick={slaVeldOver} className="text-blue-300 text-sm text-left">Later invullen</button>
+                </div>
+              )}
             </div>
           )}
 
