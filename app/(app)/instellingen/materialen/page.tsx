@@ -6,6 +6,18 @@ import { createClient } from '@/lib/supabase/client'
 type Categorie = { id: string; naam: string; default_marge_percentage: number }
 type Materiaal = { id: string; naam: string; prijs: number; eenheid: string; inkoopprijs: number | null; marge_percentage: number | null; categorie_id: string | null; laatste_inkoop_datum: string | null }
 
+type FactuurRegel = {
+  omschrijving: string
+  aantal: number
+  eenheid: string
+  prijs_per_eenheid: number
+  materiaal_id: string | null
+  materiaal_naam: string | null
+  oude_prijs: number | null
+  prijsVerschilPct: number | null
+  toepassen: boolean
+}
+
 function prijsLeeftijd(datum: string | null): { kleur: string; dot: string; tekst: string | null } {
   if (!datum) return { kleur: 'text-gray-400', dot: 'bg-gray-300', tekst: 'Geen inkoopdatum' }
   const dagen = Math.floor((Date.now() - new Date(datum).getTime()) / 86400000)
@@ -32,7 +44,17 @@ export default function MaterialenPage() {
   const [categorieen, setCategorieen] = useState<Categorie[]>([])
   const [materialen, setMaterialen] = useState<Materiaal[]>([])
   const [laden, setLaden] = useState(true)
-  const [tab, setTab] = useState<'materialen' | 'categorieen'>('materialen')
+  const [tab, setTab] = useState<'materialen' | 'categorieen' | 'inkoopfacturen'>('materialen')
+
+  // Inkoopfactuur upload
+  const [factuurBestand, setFactuurBestand] = useState<File | null>(null)
+  const [factuurVerwerken, setFactuurVerwerken] = useState(false)
+  const [factuurFout, setFactuurFout] = useState<string | null>(null)
+  const [factuurResultaat, setFactuurResultaat] = useState<{
+    factuur_id: string | null; leverancier: string; factuurdatum: string; regels: FactuurRegel[]
+  } | null>(null)
+  const [toepassenBusy, setToepassenBusy] = useState(false)
+  const [toepassenKlaar, setToepassenKlaar] = useState(false)
   const [zoekterm, setZoekterm] = useState('')
 
   // Materiaal formulier
@@ -200,16 +222,80 @@ export default function MaterialenPage() {
 
   const gefilterd = materialen.filter((m) => m.naam.toLowerCase().includes(zoekterm.toLowerCase()))
 
+  async function verwerkInkoopfactuur() {
+    if (!factuurBestand) return
+    setFactuurVerwerken(true)
+    setFactuurFout(null)
+    setFactuurResultaat(null)
+    setToepassenKlaar(false)
+
+    const form = new FormData()
+    form.append('bestand', factuurBestand)
+
+    const res = await fetch('/api/inkoopfactuur-verwerken', { method: 'POST', body: form })
+    const data = await res.json()
+    setFactuurVerwerken(false)
+
+    if (data.fout) { setFactuurFout(data.fout); return }
+    setFactuurResultaat(data)
+  }
+
+  function toggleRegel(i: number) {
+    if (!factuurResultaat) return
+    const regels = [...factuurResultaat.regels]
+    regels[i] = { ...regels[i], toepassen: !regels[i].toepassen }
+    setFactuurResultaat({ ...factuurResultaat, regels })
+  }
+
+  async function pasPrijzenToe() {
+    if (!factuurResultaat) return
+    setToepassenBusy(true)
+    const supabase = createClient()
+    const vandaag = new Date().toISOString().split('T')[0]
+
+    const teUpdaten = factuurResultaat.regels.filter((r) => r.toepassen && r.materiaal_id)
+    for (const regel of teUpdaten) {
+      const mat = materialen.find((m) => m.id === regel.materiaal_id)
+      const marge = mat?.marge_percentage ?? 35
+      const verkoopprijs = regel.prijs_per_eenheid * (1 + marge / 100)
+      await supabase.from('materialen').update({
+        inkoopprijs: regel.prijs_per_eenheid,
+        prijs: verkoopprijs,
+        laatste_inkoop_datum: vandaag,
+      }).eq('id', regel.materiaal_id!)
+
+      // Regel opslaan in inkoopfactuur_regels als factuur_id bekend is
+      if (factuurResultaat.factuur_id) {
+        await supabase.from('inkoopfactuur_regels').insert({
+          factuur_id: factuurResultaat.factuur_id,
+          omschrijving: regel.omschrijving,
+          aantal: regel.aantal,
+          eenheid: regel.eenheid,
+          prijs_per_eenheid: regel.prijs_per_eenheid,
+          materiaal_id: regel.materiaal_id,
+        })
+      }
+    }
+
+    setToepassenBusy(false)
+    setToepassenKlaar(true)
+    laadAlles()
+  }
+
   if (laden) return <div className="text-gray-500">Laden...</div>
 
   return (
     <div className="max-w-lg">
       {/* Subtabs */}
       <div className="flex gap-4 mb-6 border-b border-gray-200">
-        {(['materialen', 'categorieen'] as const).map((t) => (
+        {([
+          ['materialen', `Materialen (${materialen.length})`],
+          ['categorieen', 'Categorieën'],
+          ['inkoopfacturen', 'Inkoopfactuur'],
+        ] as const).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)}
             className={`text-sm pb-2 border-b-2 -mb-px font-medium transition-colors ${tab === t ? 'border-[#f97316] text-[#f97316]' : 'border-transparent text-gray-500'}`}>
-            {t === 'materialen' ? `Materialen (${materialen.length})` : 'Categorieën'}
+            {label}
           </button>
         ))}
       </div>
@@ -260,6 +346,104 @@ export default function MaterialenPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {tab === 'inkoopfacturen' && (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-500">Upload een inkoopfactuur (PDF) om de inkoopprijzen in je bibliotheek bij te werken.</p>
+
+          {!factuurResultaat && (
+            <div className="flex flex-col gap-3">
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => setFactuurBestand(e.target.files?.[0] ?? null)}
+                className="text-sm text-gray-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-[#f97316] hover:file:bg-orange-100"
+              />
+              {factuurBestand && (
+                <button
+                  onClick={verwerkInkoopfactuur}
+                  disabled={factuurVerwerken}
+                  className="self-start bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-orange-500 disabled:opacity-50">
+                  {factuurVerwerken ? 'Bezig met verwerken...' : 'Factuur verwerken'}
+                </button>
+              )}
+              {factuurFout && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{factuurFout}</p>
+              )}
+            </div>
+          )}
+
+          {factuurResultaat && !toepassenKlaar && (
+            <div className="flex flex-col gap-4">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                <p className="text-sm font-medium text-gray-900">{factuurResultaat.leverancier}</p>
+                <p className="text-xs text-gray-500">{factuurResultaat.factuurdatum}</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {factuurResultaat.regels.map((regel, i) => {
+                  const verschilKleur = regel.prijsVerschilPct == null ? '' :
+                    regel.prijsVerschilPct > 40 ? 'text-red-600' :
+                    regel.prijsVerschilPct > 15 ? 'text-yellow-600' : 'text-green-600'
+
+                  return (
+                    <div key={i} className={`bg-white border rounded-lg px-4 py-3 flex items-start gap-3 ${regel.toepassen ? 'border-gray-200' : 'border-gray-100 opacity-50'}`}>
+                      <input
+                        type="checkbox"
+                        checked={regel.toepassen}
+                        onChange={() => toggleRegel(i)}
+                        className="mt-0.5 accent-[#f97316] w-4 h-4 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{regel.omschrijving}</p>
+                        {regel.materiaal_naam && (
+                          <p className="text-xs text-gray-500">→ {regel.materiaal_naam}</p>
+                        )}
+                        {!regel.materiaal_id && (
+                          <p className="text-xs text-orange-500">Niet gevonden in bibliotheek</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-medium text-gray-900">€ {regel.prijs_per_eenheid.toFixed(2).replace('.', ',')}</p>
+                        {regel.oude_prijs != null && (
+                          <p className={`text-xs ${verschilKleur}`}>
+                            was € {regel.oude_prijs.toFixed(2).replace('.', ',')}
+                            {regel.prijsVerschilPct != null && ` (${regel.prijsVerschilPct > 0 ? '+' : ''}${regel.prijsVerschilPct.toFixed(0)}%)`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="flex gap-3 items-center">
+                <button
+                  onClick={pasPrijzenToe}
+                  disabled={toepassenBusy || factuurResultaat.regels.every((r) => !r.toepassen || !r.materiaal_id)}
+                  className="bg-[#f97316] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-orange-500 disabled:opacity-50">
+                  {toepassenBusy ? 'Prijzen bijwerken...' : `${factuurResultaat.regels.filter((r) => r.toepassen && r.materiaal_id).length} prijzen toepassen`}
+                </button>
+                <button onClick={() => { setFactuurResultaat(null); setFactuurBestand(null); setFactuurFout(null) }}
+                  className="text-sm text-gray-500 hover:text-gray-700">
+                  Annuleren
+                </button>
+              </div>
+            </div>
+          )}
+
+          {toepassenKlaar && (
+            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex flex-col gap-2">
+              <p className="text-sm font-medium text-green-800">Prijzen bijgewerkt.</p>
+              <button
+                onClick={() => { setFactuurResultaat(null); setFactuurBestand(null); setToepassenKlaar(false) }}
+                className="self-start text-sm text-[#f97316] hover:underline">
+                Nieuwe factuur uploaden
+              </button>
+            </div>
+          )}
         </div>
       )}
 
