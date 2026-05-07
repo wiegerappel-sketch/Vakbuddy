@@ -15,6 +15,8 @@ type Werkbon = {
   twijfels: string[]
 }
 
+type BibliotheekMateriaal = { id: string; naam: string; prijs: number; eenheid: string }
+
 export default function KlusPage() {
   const params = useParams()
   const id = params.id as string
@@ -30,6 +32,9 @@ export default function KlusPage() {
   const [mailVerzonden, setMailVerzonden] = useState(false)
   const [factuurId, setFactuurId] = useState<string | null>(null)
   const [fout, setFout] = useState('')
+  const [bibliotheek, setBibliotheek] = useState<BibliotheekMateriaal[]>([])
+  const [materiaalZoek, setMateriaalZoek] = useState('')
+  const [zoekOpen, setZoekOpen] = useState(false)
 
   useEffect(() => {
     laadKlus()
@@ -55,6 +60,14 @@ export default function KlusPage() {
     if (factuur) {
       setFactuurId(factuur.id)
       if (factuur.verzonden_op) setMailVerzonden(true)
+    }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: bedrijf } = await supabase.from('bedrijven').select('id').eq('user_id', user.id).maybeSingle()
+      if (bedrijf) {
+        const { data: mat } = await supabase.from('materialen').select('*').eq('bedrijf_id', bedrijf.id).order('naam')
+        setBibliotheek(mat ?? [])
+      }
     }
     setLaden(false)
   }
@@ -309,12 +322,59 @@ export default function KlusPage() {
                         </div>
                       </div>
                     ))}
-                    <button
-                      onClick={() => setBewerkWerkbon({ ...bewerkWerkbon, materialen: [...bewerkWerkbon.materialen, { naam: '', aantal: 1, eenheid: 'stuk', prijs: 0 }] })}
-                      className="text-sm text-[#f97316] hover:underline text-left mt-1"
-                    >
-                      + Materiaal toevoegen
-                    </button>
+                    {zoekOpen ? (
+                      <div className="mt-1 border border-gray-200 rounded-lg overflow-hidden">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={materiaalZoek}
+                          onChange={(e) => setMateriaalZoek(e.target.value)}
+                          placeholder="Zoek in bibliotheek..."
+                          className="w-full px-3 py-2 text-sm focus:outline-none border-b border-gray-200"
+                        />
+                        <div className="max-h-40 overflow-y-auto">
+                          {bibliotheek
+                            .filter((m) => m.naam.toLowerCase().includes(materiaalZoek.toLowerCase()))
+                            .map((m) => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => {
+                                  setBewerkWerkbon({ ...bewerkWerkbon, materialen: [...bewerkWerkbon.materialen, { naam: m.naam, aantal: 1, eenheid: m.eenheid, prijs: m.prijs }] })
+                                  setZoekOpen(false)
+                                  setMateriaalZoek('')
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-orange-50 flex justify-between items-center"
+                              >
+                                <span>{m.naam}</span>
+                                <span className="text-gray-400 text-xs">€ {Number(m.prijs).toFixed(2).replace('.', ',')} / {m.eenheid}</span>
+                              </button>
+                            ))}
+                          {bibliotheek.filter((m) => m.naam.toLowerCase().includes(materiaalZoek.toLowerCase())).length === 0 && (
+                            <p className="px-3 py-2 text-sm text-gray-400">Niet gevonden</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBewerkWerkbon({ ...bewerkWerkbon, materialen: [...bewerkWerkbon.materialen, { naam: materiaalZoek, aantal: 1, eenheid: 'stuk', prijs: 0 }] })
+                            setZoekOpen(false)
+                            setMateriaalZoek('')
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-[#f97316] border-t border-gray-200 hover:bg-orange-50"
+                        >
+                          + Handmatig toevoegen{materiaalZoek ? `: "${materiaalZoek}"` : ''}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setZoekOpen(true)}
+                        className="text-sm text-[#f97316] hover:underline text-left mt-1"
+                      >
+                        + Materiaal toevoegen
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div>

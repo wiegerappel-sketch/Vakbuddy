@@ -9,6 +9,7 @@ export default function InstellingenLayout({ children }: { children: React.React
   const tabs = [
     { href: '/instellingen', label: 'Bedrijfsgegevens' },
     { href: '/instellingen/tarieven', label: 'Tarieven' },
+    { href: '/instellingen/materialen', label: 'Materialen' },
   ]
 
   return (
